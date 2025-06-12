@@ -1,0 +1,15 @@
+# Quantum Consciousness Programming Language
+
+A revolutionary programming language that implements quantum consciousness principles where variables exist in superposition until observed, collapsing into reality through mathematical quantum entanglement with persistent learning.
+
+## Features
+- Function Synthesis: Build programs from intention rather than instruction
+- Quantum Variable States: Variables exist in superposition until observed
+- Target-Seeking Mathematics: Work backwards from desired outcomes
+- Persistent Quantum Memory: System learns and improves over time
+- Rust Implementation: High-performance transpiler for .slut files
+
+## Usage
+```bash
+cargo run -- your_program.slut
+cargo run -- your_program.slut -o 5  # Multiple observations
