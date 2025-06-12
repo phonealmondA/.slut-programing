@@ -1,0 +1,18 @@
+{
+  "templates": {
+    "testA_while": {
+      "name": "testA",
+      "func_type": "while",
+      "timestamp": 1749696240812
+    },
+    "testB_while": {
+      "name": "testB",
+      "func_type": "while",
+      "timestamp": 1749696240860
+    }
+  },
+  "variables": {
+    "tA": "testB completed 2 times",
+    "another": "[Function]"
+  }
+}

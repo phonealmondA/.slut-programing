@@ -1,0 +1,22 @@
+* <main> variable_test {
+    ^ observe_execution {
+        speak("Starting variable assignment test")
+        
+        testA(a) <> function(while)
+        testB(b) <> function(while)
+        
+        speak("Step 1: Store testB execution in variable 'this'")
+        tA <> testB(2)("console.log('nested hello')")
+        
+        speak("Step 2: Use variable 'this' as body for testA")
+        testA(3)(tA)
+        
+        speak("Step 3: Store testA template in variable 'another'")
+        another <> testA()
+        
+        speak("Step 4: Execute stored template")
+        woof another
+        
+        speak("Variable assignment test complete")
+    }
+}
