@@ -1,0 +1,22 @@
+* <main> smart_loops_enhanced {
+    ^ observe_execution {
+        speak("Building next-generation adaptive loops")
+        
+        smartLoop(params) <> function(loop)
+        
+        speak("Testing count-based loops:")
+        smartLoop(3)("console.log('Simple count')")
+        
+        speak("Testing range-based loops:")
+        smartLoop(1, 4)("console.log('Range iteration')")
+        
+        speak("Testing step-based loops:")
+        smartLoop(0, 10, 3)("console.log('Step by 3')")
+        
+        speak("Building conditional functions:")
+        smartCondition(params) <> function(conditional)
+        
+        speak("One synthesis system, infinite programming possibilities!")
+        speak("Functions are now built and cached for future programs!")
+    }
+}

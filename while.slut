@@ -1,22 +1,24 @@
-* <main> variable_test {
+* <main> advanced_variable_system {
     ^ observe_execution {
-        speak("Starting variable assignment test")
+        speak("Building advanced function composition system")
         
-        testA(a) <> function(while)
-        testB(b) <> function(while)
+        loopBuilder(params) <> function(loop)
+        conditionalBuilder(params) <> function(conditional)
         
-        speak("Step 1: Store testB execution in variable 'this'")
-        tA <> testB(2)("console.log('nested hello')")
+        speak("Testing function composition:")
         
-        speak("Step 2: Use variable 'this' as body for testA")
-        testA(3)(tA)
+        loopBuilder(3)("console.log('Primary loop')")
+        loopBuilder(2, 5)("console.log('Range loop')")
         
-        speak("Step 3: Store testA template in variable 'another'")
-        another <> testA()
+        speak("Building nested function capabilities:")
         
-        speak("Step 4: Execute stored template")
-        woof another
+        nestedProcessor(params) <> function(loop)
+        nestedProcessor(2)("console.log('Nested execution')")
         
-        speak("Variable assignment test complete")
+        speak("Testing function reuse:")
+        loopBuilder(4)("console.log('Reusing built function')")
+        
+        speak("Advanced function synthesis complete!")
+        speak("All functions cached and ready for cross-program sharing!")
     }
 }

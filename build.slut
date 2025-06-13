@@ -1,0 +1,12 @@
+* <main> function_builder {
+    ^ observe_execution {
+        speak("Building shared functions for other programs to use")
+        
+        sharedLoop(params) <> function(loop)
+        conditionalCheck(params) <> function(conditional)
+        
+        speak("Functions built and ready for sharing!")
+        
+        sharedLoop(3)("console.log('Built and tested')")
+    }
+}

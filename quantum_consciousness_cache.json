@@ -1,0 +1,67 @@
+{
+  "templates": {
+    "patternFinder_loop_1": {
+      "name": "patternFinder",
+      "func_type": "loop",
+      "parameter_count": 1,
+      "timestamp": 1749710086023,
+      "is_built": true,
+      "file_path": "functions/src/patternfinder.rs"
+    },
+    "mathProcessor_loop_1": {
+      "name": "mathProcessor",
+      "func_type": "loop",
+      "parameter_count": 1,
+      "timestamp": 1749710085918,
+      "is_built": true,
+      "file_path": "functions/src/mathprocessor.rs"
+    }
+  },
+  "variables": {},
+  "quantum_states": {},
+  "variable_attempts": {},
+  "built_functions": {
+    "patternFinder": {
+      "name": "patternFinder",
+      "variants": [
+        {
+          "parameter_count": 1,
+          "parameter_pattern": "count",
+          "rust_function_name": "patternfinder_count"
+        },
+        {
+          "parameter_count": 2,
+          "parameter_pattern": "range",
+          "rust_function_name": "patternfinder_range"
+        },
+        {
+          "parameter_count": 3,
+          "parameter_pattern": "step",
+          "rust_function_name": "patternfinder_step"
+        }
+      ],
+      "timestamp": 1749710086023
+    },
+    "mathProcessor": {
+      "name": "mathProcessor",
+      "variants": [
+        {
+          "parameter_count": 1,
+          "parameter_pattern": "count",
+          "rust_function_name": "mathprocessor_count"
+        },
+        {
+          "parameter_count": 2,
+          "parameter_pattern": "range",
+          "rust_function_name": "mathprocessor_range"
+        },
+        {
+          "parameter_count": 3,
+          "parameter_pattern": "step",
+          "rust_function_name": "mathprocessor_step"
+        }
+      ],
+      "timestamp": 1749710085918
+    }
+  }
+}

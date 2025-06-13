@@ -1,0 +1,10 @@
+* <main> function_consumer {
+    ^ observe_execution {
+        speak("Using functions built by other programs")
+        
+        sharedLoop(7)("console.log('Using shared function')")
+        sharedLoop(1, 5)("console.log('Range using shared')")
+        
+        speak("Successfully used shared functions!")
+    }
+}
