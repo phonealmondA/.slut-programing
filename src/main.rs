@@ -13,7 +13,7 @@ mod target_seeker;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
-use target_seeker::QuantumTargetSeeker;
+use target_seeker::{QuantumTargetSeeker, CollapsedState, VariableAttempt};
 
 #[derive(Parser)]
 #[command(name = "quantum")]
@@ -60,22 +60,6 @@ pub struct FunctionVariant {
     pub rust_function_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct CollapsedState {
-    result: f64,
-    equation: String,
-    accuracy: f64,
-    timestamp: u64,
-    calculation_time: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct VariableAttempt {
-    equation: String,
-    result: f64,
-    timestamp: u64,
-}
-
 fn main() -> Result<()> {
     let args = Args::parse();
     
@@ -108,6 +92,7 @@ struct QuantumTranspiler {
     function_builder: FunctionBuilder,
     function_executor: FunctionExecutor,
     target_seeker: QuantumTargetSeeker,
+    variable_values: HashMap<String, f64>, // Store variable values for interpolation
 }
 
 impl QuantumTranspiler {
@@ -137,6 +122,7 @@ impl QuantumTranspiler {
             function_builder,
             function_executor,
             target_seeker,
+            variable_values: HashMap::new(),
         })
     }
     
@@ -216,6 +202,9 @@ impl QuantumTranspiler {
             let result = self.target_seeker.find_target_solution(target, &inputs, class_name, var_name)?;
             println!("== Quantum collapse: {} = {} (accuracy: {:.1}%)", var_name, result.result, result.accuracy);
             
+            // Store variable value for interpolation
+            self.variable_values.insert(var_name.to_string(), result.result);
+            
             // Store result in cache
             let cache_key = format!("{}-{}-{}", class_name, target, inputs.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(","));
             self.cache.quantum_states.insert(cache_key, CollapsedState {
@@ -251,13 +240,29 @@ impl QuantumTranspiler {
         let speak_regex = Regex::new(r#"speak\s*\(\s*"([^"]*)"\s*\)"#)?;
         if let Some(captures) = speak_regex.captures(statement) {
             let message = &captures[1];
-            // For now, just print the message as-is
-            // TODO: Implement variable interpolation (~variable~)
-            println!("{}", message);
+            let interpolated_message = self.interpolate_variables(message);
+            println!("{}", interpolated_message);
             return Ok(());
         }
         
         Ok(())
+    }
+    
+    fn interpolate_variables(&self, message: &str) -> String {
+        let mut result = message.to_string();
+        
+        // Replace variable interpolations like ~result~
+        let var_regex = Regex::new(r"~(\w+)~").unwrap();
+        result = var_regex.replace_all(&result, |caps: &regex::Captures| {
+            let var_name = &caps[1];
+            if let Some(value) = self.variable_values.get(var_name) {
+                value.to_string()
+            } else {
+                format!("~{}~", var_name) // Keep unchanged if variable not found
+            }
+        }).to_string();
+        
+        result
     }
     
     fn synthesize_polymorphic_function(&mut self, name: &str, params: &str, func_type: &str) -> Result<()> {

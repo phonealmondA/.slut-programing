@@ -4,8 +4,8 @@
         
         mathProcessor(params) <> function(loop)
         
-        result([7.5]) <> randomChoice([1,2,3])
-        speak(">> Quantum math target: ~result~")
+        result([6]) <> randomChoice([1,2,3])
+        speak(">> Quantum math target achieved: ~result~")
         
         speak("Processing mathematical sequences:")
         mathProcessor(5)("console.log('Math iteration')")
@@ -13,6 +13,12 @@
         speak("Creating pattern recognition functions:")
         patternFinder(params) <> function(loop) 
         patternFinder(1, 8)("console.log('Seeking patterns')")
+        
+        larger([15]) <> randomChoice([2,3,5,7])
+        speak(">> Larger target achieved: ~larger~")
+        
+        complex([100]) <> randomChoice([2,4,5,10,25])
+        speak(">> Complex target achieved: ~complex~")
         
         speak("Mathematical consciousness functions built and ready!")
     }
