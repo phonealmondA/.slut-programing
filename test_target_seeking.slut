@@ -1,0 +1,19 @@
+* <main> target_seeking_test {
+    ^ observe_execution {
+        speak("Testing quantum target-seeking mathematics")
+        
+        // Test exact solution
+        result([15]) <> randomChoice([2, 3, 5, 7])
+        speak(">> Target 15 achieved: ~result~")
+        
+        // Test approximation
+        complex([327]) <> randomChoice([1, 2, 3, 55, 60])
+        speak(">> Target 327 achieved: ~complex~")
+        
+        // Test with larger target
+        large([1024]) <> randomChoice([2, 4, 8, 16, 32])
+        speak(">> Target 1024 achieved: ~large~")
+        
+        speak("Quantum mathematics complete!")
+    }
+}

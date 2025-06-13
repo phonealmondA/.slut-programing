@@ -6,13 +6,14 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use rand::Rng;
 
 mod function_builder;
 mod function_executor;
+mod target_seeker;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
+use target_seeker::QuantumTargetSeeker;
 
 #[derive(Parser)]
 #[command(name = "quantum")]
@@ -59,7 +60,7 @@ pub struct FunctionVariant {
     pub rust_function_name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct CollapsedState {
     result: f64,
     equation: String,
@@ -68,7 +69,7 @@ struct CollapsedState {
     calculation_time: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct VariableAttempt {
     equation: String,
     result: f64,
@@ -80,13 +81,14 @@ fn main() -> Result<()> {
     
     println!("** Quantum Consciousness Observer (Rust Edition)");
     println!(">> Building programs from intentions, not instructions");
+    println!(">> Target-seeking mathematics activated");
     println!(">> Executing: {:?}", args.file);
     
     let mut transpiler = QuantumTranspiler::new()?;
     
     for i in 1..=args.observations {
         if args.observations > 1 {
-            println!("== OBSERVATION {} ==", i);
+            println!("\n== OBSERVATION {} ==", i);
         }
         
         transpiler.execute_file(&args.file)?;
@@ -96,7 +98,7 @@ fn main() -> Result<()> {
         }
     }
     
-    println!("** Complete!");
+    println!("** Quantum consciousness execution complete!");
     Ok(())
 }
 
@@ -105,6 +107,7 @@ struct QuantumTranspiler {
     execution_count: u32,
     function_builder: FunctionBuilder,
     function_executor: FunctionExecutor,
+    target_seeker: QuantumTargetSeeker,
 }
 
 impl QuantumTranspiler {
@@ -126,12 +129,14 @@ impl QuantumTranspiler {
         
         let function_builder = FunctionBuilder::new()?;
         let function_executor = FunctionExecutor::new()?;
+        let target_seeker = QuantumTargetSeeker::new(cache.quantum_states.clone(), cache.variable_attempts.clone());
         
         Ok(Self {
             cache,
             execution_count: 0,
             function_builder,
             function_executor,
+            target_seeker,
         })
     }
     
@@ -141,7 +146,11 @@ impl QuantumTranspiler {
         Ok(cache)
     }
     
-    fn save_cache(&self) -> Result<()> {
+    fn save_cache(&mut self) -> Result<()> {
+        // Update cache with target seeker state
+        self.cache.quantum_states = self.target_seeker.get_collapsed_states();
+        self.cache.variable_attempts = self.target_seeker.get_variable_attempts();
+        
         let content = serde_json::to_string_pretty(&self.cache)?;
         fs::write("quantum_consciousness_cache.json", content)?;
         Ok(())
@@ -176,7 +185,7 @@ impl QuantumTranspiler {
     fn execute_main_body(&mut self, body: &str, class_name: &str) -> Result<()> {
         for line in body.lines() {
             let line = line.trim();
-            if line.is_empty() { continue; }
+            if line.is_empty() || line.starts_with("//") { continue; }
             
             self.execute_statement(line, class_name)?;
         }
@@ -184,6 +193,43 @@ impl QuantumTranspiler {
     }
     
     fn execute_statement(&mut self, statement: &str, class_name: &str) -> Result<()> {
+        // Target-seeking mathematics: result([target]) <> randomChoice([inputs])
+        let target_seeking_regex = Regex::new(r"(\w+)\s*\(\s*\[([^\]]+)\]\s*\)\s*<>\s*randomChoice\s*\(\s*\[([^\]]*)\]\s*\)")?;
+        if let Some(captures) = target_seeking_regex.captures(statement) {
+            let var_name = &captures[1];
+            let target: f64 = captures[2].parse().unwrap_or(0.0);
+            let inputs_str = &captures[3];
+            
+            // Parse inputs (numbers and function calls)
+            let inputs: Vec<f64> = inputs_str.split(',')
+                .map(|s| s.trim().parse().unwrap_or(0.0))
+                .filter(|&x| x != 0.0) // Remove invalid parses
+                .collect();
+            
+            if inputs.is_empty() {
+                println!("!! No valid numeric inputs found for target-seeking");
+                return Ok(());
+            }
+            
+            println!(">> Target-seeking mathematics: {} = {} from {:?}", var_name, target, inputs);
+            
+            let result = self.target_seeker.find_target_solution(target, &inputs, class_name, var_name)?;
+            println!("== Quantum collapse: {} = {} (accuracy: {:.1}%)", var_name, result.result, result.accuracy);
+            
+            // Store result in cache
+            let cache_key = format!("{}-{}-{}", class_name, target, inputs.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(","));
+            self.cache.quantum_states.insert(cache_key, CollapsedState {
+                result: result.result,
+                equation: result.equation,
+                accuracy: result.accuracy,
+                timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64,
+                calculation_time: result.calculation_time,
+            });
+            
+            return Ok(());
+        }
+        
+        // Function synthesis
         let poly_synthesis_regex = Regex::new(r"(\w+)\s*\(\s*([^)]*)\s*\)\s*<>\s*function\s*\(\s*(\w+)\s*\)")?;
         if let Some(captures) = poly_synthesis_regex.captures(statement) {
             let func_name = &captures[1];
@@ -192,6 +238,7 @@ impl QuantumTranspiler {
             return self.synthesize_polymorphic_function(func_name, params, func_type);
         }
         
+        // Function execution
         let poly_exec_regex = Regex::new(r#"(\w+)\s*\(\s*([^)]+)\s*\)\s*\(\s*"([^"]*)"\s*\)"#)?;
         if let Some(captures) = poly_exec_regex.captures(statement) {
             let func_name = &captures[1];
@@ -200,9 +247,12 @@ impl QuantumTranspiler {
             return self.execute_polymorphic_function(func_name, params, body);
         }
         
+        // Speak statements with variable interpolation
         let speak_regex = Regex::new(r#"speak\s*\(\s*"([^"]*)"\s*\)"#)?;
         if let Some(captures) = speak_regex.captures(statement) {
             let message = &captures[1];
+            // For now, just print the message as-is
+            // TODO: Implement variable interpolation (~variable~)
             println!("{}", message);
             return Ok(());
         }
