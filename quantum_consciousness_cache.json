@@ -1,40 +1,168 @@
 {
-  "templates": {},
-  "variables": {},
+  "templates": {
+    "smartLoop_loop_1": {
+      "name": "smartLoop",
+      "func_type": "loop",
+      "parameter_count": 1,
+      "timestamp": 1750028291885,
+      "is_built": true,
+      "file_path": "functions/src/smartloop.rs"
+    }
+  },
+  "variables": {
+    "myBool": {
+      "name": "myBool",
+      "value": {
+        "Boolean": true
+      },
+      "timestamp": 1750028296927,
+      "source_equation": null
+    },
+    "result": {
+      "name": "result",
+      "value": {
+        "Number": 56.0
+      },
+      "timestamp": 1750028296961,
+      "source_equation": "1 + 55"
+    },
+    "combined": {
+      "name": "combined",
+      "value": {
+        "Number": 114.0
+      },
+      "timestamp": 1750028297039,
+      "source_equation": "19 * 6"
+    },
+    "myNumber": {
+      "name": "myNumber",
+      "value": {
+        "Number": 42.0
+      },
+      "timestamp": 1750028296907,
+      "source_equation": null
+    },
+    "helper": {
+      "name": "helper",
+      "value": {
+        "Number": 25.0
+      },
+      "timestamp": 1750028297002,
+      "source_equation": "mathHelper()"
+    },
+    "myString": {
+      "name": "myString",
+      "value": {
+        "String": "Hello World"
+      },
+      "timestamp": 1750028296919,
+      "source_equation": null
+    },
+    "totalSum": {
+      "name": "totalSum",
+      "value": {
+        "Number": 123.0
+      },
+      "timestamp": 1750028297171,
+      "source_equation": "calc(result, helper, myNumber)"
+    },
+    "choice": {
+      "name": "choice",
+      "value": {
+        "Number": 20.0
+      },
+      "timestamp": 1750028297198,
+      "source_equation": "randomChoice(10, 20, 30)"
+    },
+    "calculated": {
+      "name": "calculated",
+      "value": {
+        "Number": 98.0
+      },
+      "timestamp": 1750028297141,
+      "source_equation": "calc(myNumber, result)"
+    },
+    "baseValue": {
+      "name": "baseValue",
+      "value": {
+        "Number": 25.0
+      },
+      "timestamp": 1750028296997,
+      "source_equation": null
+    }
+  },
   "quantum_states": {},
   "variable_attempts": {
     "result": [
       {
-        "equation": "7 ^ 2",
-        "result": 49.0,
-        "timestamp": 1750022409161,
-        "accuracy": 93.0
+        "equation": "1 + 55",
+        "result": 56.0,
+        "timestamp": 1750028291777,
+        "accuracy": 100.0
       }
     ],
-    "answer": [
+    "combined": [
       {
-        "equation": "3 * 5 * 8",
-        "result": 120.0,
-        "timestamp": 1750022409186,
-        "accuracy": 80.0
+        "equation": "19 * 6",
+        "result": 114.0,
+        "timestamp": 1750028291843,
+        "accuracy": 86.0
+      },
+      {
+        "equation": "19 * 6",
+        "result": 114.0,
+        "timestamp": 1750028297038,
+        "accuracy": 86.0
       }
     ]
   },
-  "built_functions": {},
+  "built_functions": {
+    "smartLoop": {
+      "name": "smartLoop",
+      "variants": [
+        {
+          "parameter_count": 1,
+          "parameter_pattern": "count",
+          "rust_function_name": "smartloop_count"
+        },
+        {
+          "parameter_count": 2,
+          "parameter_pattern": "range",
+          "rust_function_name": "smartloop_range"
+        },
+        {
+          "parameter_count": 3,
+          "parameter_pattern": "step",
+          "rust_function_name": "smartloop_step"
+        }
+      ],
+      "timestamp": 1750028291885
+    }
+  },
   "math_solutions": {
-    "mathematical_consciousness-result-56-3,2,7": {
-      "result": 49.0,
-      "equation": "7 ^ 2",
-      "accuracy": 93.0,
-      "timestamp": 1750022409161,
+    "enhanced_consciousness-result-56-1,2,3,55": {
+      "result": 56.0,
+      "equation": "1 + 55",
+      "accuracy": 100.0,
+      "timestamp": 1750028291777,
       "attempts": 1
     },
-    "mathematical_consciousness-answer-100-3,5,8": {
-      "result": 120.0,
-      "equation": "3 * 5 * 8",
-      "accuracy": 80.0,
-      "timestamp": 1750022409186,
+    "enhanced_consciousness-combined-100-56,19,6": {
+      "result": 114.0,
+      "equation": "19 * 6",
+      "accuracy": 86.0,
+      "timestamp": 1750028291843,
       "attempts": 1
+    }
+  },
+  "function_results": {
+    "mathHelper": {
+      "function_name": "mathHelper",
+      "result": {
+        "String": "\r\n        baseValue <> 25\r\n        woof baseValue\r\n    "
+      },
+      "execution_time": 0.0,
+      "timestamp": 1750028296881
     }
   }
 }

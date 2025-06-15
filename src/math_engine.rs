@@ -1,7 +1,9 @@
+// src/math_engine.rs - Enhanced with variable integration and function calls
+
 use anyhow::Result;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH, Instant};
-use crate::{MathSolution, VariableAttempt};
+use crate::{MathSolution, VariableAttempt, VariableValue};
 use crate::equation_solver::{EquationSolver, Operation};
 
 pub struct MathEngine {
@@ -9,6 +11,7 @@ pub struct MathEngine {
     variable_attempts: HashMap<String, Vec<VariableAttempt>>,
     equation_solver: EquationSolver,
     observation_count: u32,
+    function_call_results: HashMap<String, f64>, // Cache for function call results
 }
 
 impl MathEngine {
@@ -21,6 +24,7 @@ impl MathEngine {
             variable_attempts,
             equation_solver: EquationSolver::new(),
             observation_count: 0,
+            function_call_results: HashMap::new(),
         }
     }
     
@@ -81,6 +85,164 @@ impl MathEngine {
         println!("   Solution time: {:?}, Total time: {:?}", solution_time, total_time);
         
         Ok(solution)
+    }
+    
+    pub fn solve_expression(&mut self, expression: &str, variables: &HashMap<String, VariableValue>) -> Result<f64> {
+        println!(">> Evaluating expression: {}", expression);
+        
+        // Handle calc() expressions
+        if expression.starts_with("calc(") && expression.ends_with(")") {
+            let inner = &expression[5..expression.len()-1];
+            let params = self.parse_calc_parameters(inner, variables)?;
+            
+            if params.len() == 2 {
+                let result = self.execute_two_number_calc(params[0], params[1]);
+                println!("-- calc({}, {}) = {}", params[0], params[1], result);
+                return Ok(result);
+            } else if params.len() == 3 {
+                let result = self.execute_three_number_calc(params[0], params[1], params[2]);
+                println!("-- calc({}, {}, {}) = {}", params[0], params[1], params[2], result);
+                return Ok(result);
+            }
+        }
+        
+        // Handle direct numeric values
+        if let Ok(value) = expression.parse::<f64>() {
+            return Ok(value);
+        }
+        
+        // Handle variable references
+        if let Some(var_value) = variables.get(expression) {
+            if let VariableValue::Number(n) = var_value {
+                println!("-- Resolved variable '{}' = {}", expression, n);
+                return Ok(*n);
+            }
+        }
+        
+        // Handle basic arithmetic expressions
+        self.evaluate_arithmetic_expression(expression, variables)
+    }
+    
+    fn parse_calc_parameters(&self, params_str: &str, variables: &HashMap<String, VariableValue>) -> Result<Vec<f64>> {
+        let mut params = Vec::new();
+        
+        for param in params_str.split(',') {
+            let param = param.trim();
+            
+            // Try direct number parsing
+            if let Ok(num) = param.parse::<f64>() {
+                params.push(num);
+            }
+            // Try variable resolution
+            else if let Some(var_value) = variables.get(param) {
+                if let VariableValue::Number(n) = var_value {
+                    params.push(*n);
+                    println!("-- Resolved parameter '{}' = {}", param, n);
+                } else {
+                    return Err(anyhow::anyhow!("Variable '{}' is not numeric", param));
+                }
+            }
+            // Try function call resolution (future enhancement)
+            else if param.contains('(') {
+                return Err(anyhow::anyhow!("Function calls in calc() not yet implemented"));
+            }
+            else {
+                return Err(anyhow::anyhow!("Could not resolve parameter: {}", param));
+            }
+        }
+        
+        Ok(params)
+    }
+    
+    fn execute_two_number_calc(&mut self, a: f64, b: f64) -> f64 {
+        // Use equation solver to find an interesting operation
+        let operations = vec![
+            Operation { result: a + b, equation: format!("{} + {}", a, b) },
+            Operation { result: a - b, equation: format!("{} - {}", a, b) },
+            Operation { result: a * b, equation: format!("{} * {}", a, b) },
+            Operation { result: if b != 0.0 { a / b } else { a }, equation: format!("{} / {}", a, b) },
+            Operation { result: a.powf(b), equation: format!("{} ^ {}", a, b) },
+        ];
+        
+        // For now, use addition, but could be made more intelligent
+        let chosen = &operations[0]; // Addition
+        println!("   Using operation: {}", chosen.equation);
+        chosen.result
+    }
+    
+    fn execute_three_number_calc(&mut self, a: f64, b: f64, c: f64) -> f64 {
+        // More complex three-number operations
+        let operations = vec![
+            Operation { result: a + b + c, equation: format!("{} + {} + {}", a, b, c) },
+            Operation { result: a * b + c, equation: format!("{} * {} + {}", a, b, c) },
+            Operation { result: (a + b) * c, equation: format!("({} + {}) * {}", a, b, c) },
+            Operation { result: a + b * c, equation: format!("{} + {} * {}", a, b, c) },
+        ];
+        
+        // Use the first operation for now
+        let chosen = &operations[0];
+        println!("   Using operation: {}", chosen.equation);
+        chosen.result
+    }
+    
+    fn evaluate_arithmetic_expression(&self, expression: &str, variables: &HashMap<String, VariableValue>) -> Result<f64> {
+        // Simple arithmetic parser - this could be much more sophisticated
+        if expression.contains('+') {
+            let parts: Vec<&str> = expression.split('+').collect();
+            if parts.len() == 2 {
+                let left = self.resolve_operand(parts[0].trim(), variables)?;
+                let right = self.resolve_operand(parts[1].trim(), variables)?;
+                return Ok(left + right);
+            }
+        }
+        
+        if expression.contains('-') {
+            let parts: Vec<&str> = expression.split('-').collect();
+            if parts.len() == 2 {
+                let left = self.resolve_operand(parts[0].trim(), variables)?;
+                let right = self.resolve_operand(parts[1].trim(), variables)?;
+                return Ok(left - right);
+            }
+        }
+        
+        if expression.contains('*') {
+            let parts: Vec<&str> = expression.split('*').collect();
+            if parts.len() == 2 {
+                let left = self.resolve_operand(parts[0].trim(), variables)?;
+                let right = self.resolve_operand(parts[1].trim(), variables)?;
+                return Ok(left * right);
+            }
+        }
+        
+        if expression.contains('/') {
+            let parts: Vec<&str> = expression.split('/').collect();
+            if parts.len() == 2 {
+                let left = self.resolve_operand(parts[0].trim(), variables)?;
+                let right = self.resolve_operand(parts[1].trim(), variables)?;
+                if right != 0.0 {
+                    return Ok(left / right);
+                }
+            }
+        }
+        
+        // Fallback: try to resolve as single operand
+        self.resolve_operand(expression, variables)
+    }
+    
+    fn resolve_operand(&self, operand: &str, variables: &HashMap<String, VariableValue>) -> Result<f64> {
+        // Try number parsing
+        if let Ok(num) = operand.parse::<f64>() {
+            return Ok(num);
+        }
+        
+        // Try variable resolution
+        if let Some(var_value) = variables.get(operand) {
+            if let VariableValue::Number(n) = var_value {
+                return Ok(*n);
+            }
+        }
+        
+        Err(anyhow::anyhow!("Could not resolve operand: {}", operand))
     }
     
     fn create_cache_key(&self, target: f64, inputs: &[f64], class_name: &str, var_name: &str) -> String {
@@ -236,5 +398,14 @@ impl MathEngine {
     
     pub fn get_variable_attempts(&self) -> HashMap<String, Vec<VariableAttempt>> {
         self.variable_attempts.clone()
+    }
+    
+    pub fn store_function_result(&mut self, function_name: &str, result: f64) {
+        self.function_call_results.insert(function_name.to_string(), result);
+        println!("++ Cached function result: {}() = {}", function_name, result);
+    }
+    
+    pub fn get_function_result(&self, function_name: &str) -> Option<f64> {
+        self.function_call_results.get(function_name).copied()
     }
 }

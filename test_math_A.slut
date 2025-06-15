@@ -1,14 +1,69 @@
-* <main> mathematical_consciousness {
+* mathHelper {
     ^ observe_execution {
-        speak("Testing quantum mathematical target-seeking")
+        baseValue <> 25
+        woof baseValue
+    }
+}
+
+* <main> enhanced_consciousness {
+    ^ observe_execution {
+        speak("Testing enhanced Rust quantum consciousness!")
         
-        speak("Simple two-number target seeking:")
-        result([56]) <> randomChoice([3, 2, 7])
+        speak("=== Variable Storage and String Interpolation ===")
         
-        speak("Three-number combination seeking:")
-        answer([100]) <> randomChoice([3, 5, 8])
+        // Basic variable assignment
+        myNumber <> 42
+        myString <> "Hello World"
+        myBool <> true
         
+        speak("Variables stored: ~myNumber~, ~myString~, ~myBool~")
         
-        speak("Mathematical consciousness testing complete!")
+        speak("=== Mathematical Target-Seeking with Variables ===")
+        
+        // Mathematical target-seeking
+        result([56]) <> randomChoice([1, 2, 3, 55])
+        speak("Math result: ~result~")
+        
+        speak("=== Function Hierarchy Testing ===")
+        
+        // Function call should return actual value (25)
+        helper <> mathHelper()
+        speak("Helper function returned: ~helper~")
+        
+        // Using function result in target-seeking (now should work with numeric result)
+        combined([100]) <> randomChoice([result, 19, 6])
+        speak("Combined result: ~combined~")
+        
+        speak("=== Function Synthesis Integration ===")
+        
+        // Function synthesis
+        smartLoop(params) <> function(loop)
+        speak("Function synthesized: smartLoop")
+        
+        // Using the built function
+        smartLoop(3)("console.log('Enhanced loop iteration')")
+        
+        speak("=== Advanced Variable Operations ===")
+        
+        // Calculations with variables - should now work!
+        calculated <> calc(myNumber, result)
+        speak("Calculated value: ~calculated~")
+        
+        // Calculation with function result
+        totalSum <> calc(result, helper, myNumber)
+        speak("Total sum: ~totalSum~")
+        
+        // Random choices
+        choice <> randomChoice([10, 20, 30])
+        speak("Random choice: ~choice~")
+        
+        speak("=== Final Results ===")
+        woof result
+        woof helper
+        woof calculated
+        woof totalSum
+        
+        speak("Enhanced quantum consciousness demonstration complete!")
+        speak("All variables: myNumber=~myNumber~, result=~result~, helper=~helper~, calculated=~calculated~, totalSum=~totalSum~")
     }
 }

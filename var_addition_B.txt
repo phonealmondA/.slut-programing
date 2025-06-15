@@ -1,0 +1,36 @@
+* numberHelper {
+    ^ observe_execution {
+        helperValue <> 25
+        woof helperValue
+    }
+}
+
+* <main> test_fixes {
+    ^ observe_execution {
+        speak("=== Testing Fixed Features ===")
+        
+        // Basic variables
+        x <> 10
+        y <> 20
+        speak("Basic variables: x=~x~, y=~y~")
+        
+        // Test calc() with variables - SHOULD WORK NOW
+        sum <> calc(x, y)
+        speak("Calculated sum: ~sum~")
+        
+        // Test function hierarchy - SHOULD RETURN 25 NOW
+        helper <> numberHelper()
+        speak("Function returned: ~helper~")
+        
+        // Test calc() with function result
+        total <> calc(sum, helper)
+        speak("Total with function result: ~total~")
+        
+        // Test everything together
+        speak("Final: x=~x~, y=~y~, sum=~sum~, helper=~helper~, total=~total~")
+        
+        woof sum
+        woof helper
+        woof total
+    }
+}
