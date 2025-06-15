@@ -6,13 +6,15 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use rand::Rng;
 
 mod function_builder;
 mod function_executor;
+mod math_engine;
+mod equation_solver;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
+use math_engine::MathEngine;
 
 #[derive(Parser)]
 #[command(name = "quantum")]
@@ -33,6 +35,7 @@ struct QuantumCache {
     quantum_states: HashMap<String, CollapsedState>,
     variable_attempts: HashMap<String, Vec<VariableAttempt>>,
     built_functions: HashMap<String, BuiltFunction>,
+    math_solutions: HashMap<String, MathSolution>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,18 +71,28 @@ struct CollapsedState {
     calculation_time: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct VariableAttempt {
     equation: String,
     result: f64,
     timestamp: u64,
+    accuracy: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MathSolution {
+    pub result: f64,
+    pub equation: String,
+    pub accuracy: f64,
+    pub timestamp: u64,
+    pub attempts: u32,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
     
     println!("** Quantum Consciousness Observer (Rust Edition)");
-    println!(">> Building programs from intentions, not instructions");
+    println!(">> Building programs from intentions and solving mathematical targets");
     println!(">> Executing: {:?}", args.file);
     
     let mut transpiler = QuantumTranspiler::new()?;
@@ -105,6 +118,7 @@ struct QuantumTranspiler {
     execution_count: u32,
     function_builder: FunctionBuilder,
     function_executor: FunctionExecutor,
+    math_engine: MathEngine,
 }
 
 impl QuantumTranspiler {
@@ -117,21 +131,24 @@ impl QuantumTranspiler {
                 quantum_states: HashMap::new(),
                 variable_attempts: HashMap::new(),
                 built_functions: HashMap::new(),
+                math_solutions: HashMap::new(),
             }
         });
         
-        if !cache.templates.is_empty() || !cache.built_functions.is_empty() {
-            println!("** Loaded previous quantum states and built functions from cache");
+        if !cache.templates.is_empty() || !cache.built_functions.is_empty() || !cache.math_solutions.is_empty() {
+            println!("** Loaded previous quantum states, built functions, and math solutions from cache");
         }
         
         let function_builder = FunctionBuilder::new()?;
         let function_executor = FunctionExecutor::new()?;
+        let math_engine = MathEngine::new(cache.math_solutions.clone(), cache.variable_attempts.clone());
         
         Ok(Self {
             cache,
             execution_count: 0,
             function_builder,
             function_executor,
+            math_engine,
         })
     }
     
@@ -141,7 +158,11 @@ impl QuantumTranspiler {
         Ok(cache)
     }
     
-    fn save_cache(&self) -> Result<()> {
+    fn save_cache(&mut self) -> Result<()> {
+        // Update cache with latest math solutions and attempts
+        self.cache.math_solutions = self.math_engine.get_solutions();
+        self.cache.variable_attempts = self.math_engine.get_variable_attempts();
+        
         let content = serde_json::to_string_pretty(&self.cache)?;
         fs::write("quantum_consciousness_cache.json", content)?;
         Ok(())
@@ -184,6 +205,16 @@ impl QuantumTranspiler {
     }
     
     fn execute_statement(&mut self, statement: &str, class_name: &str) -> Result<()> {
+        // Target-seeking mathematics: result([56]) <> randomChoice([1, 2, 3, 55])
+        let target_math_regex = Regex::new(r"(\w+)\s*\(\s*\[\s*([^\]]+)\s*\]\s*\)\s*<>\s*randomChoice\s*\(\s*\[\s*([^\]]*)\s*\]\s*\)")?;
+        if let Some(captures) = target_math_regex.captures(statement) {
+            let var_name = &captures[1];
+            let target_str = &captures[2];
+            let inputs_str = &captures[3];
+            return self.solve_target_math(var_name, target_str, inputs_str, class_name);
+        }
+        
+        // Function synthesis: smartLoop(params) <> function(loop)
         let poly_synthesis_regex = Regex::new(r"(\w+)\s*\(\s*([^)]*)\s*\)\s*<>\s*function\s*\(\s*(\w+)\s*\)")?;
         if let Some(captures) = poly_synthesis_regex.captures(statement) {
             let func_name = &captures[1];
@@ -192,6 +223,7 @@ impl QuantumTranspiler {
             return self.synthesize_polymorphic_function(func_name, params, func_type);
         }
         
+        // Function execution: smartLoop(3)("console.log('hello')")
         let poly_exec_regex = Regex::new(r#"(\w+)\s*\(\s*([^)]+)\s*\)\s*\(\s*"([^"]*)"\s*\)"#)?;
         if let Some(captures) = poly_exec_regex.captures(statement) {
             let func_name = &captures[1];
@@ -200,12 +232,33 @@ impl QuantumTranspiler {
             return self.execute_polymorphic_function(func_name, params, body);
         }
         
+        // Speak statements: speak("message")
         let speak_regex = Regex::new(r#"speak\s*\(\s*"([^"]*)"\s*\)"#)?;
         if let Some(captures) = speak_regex.captures(statement) {
             let message = &captures[1];
             println!("{}", message);
             return Ok(());
         }
+        
+        Ok(())
+    }
+    
+    fn solve_target_math(&mut self, var_name: &str, target_str: &str, inputs_str: &str, class_name: &str) -> Result<()> {
+        let target: f64 = target_str.parse()?;
+        
+        // Parse inputs
+        let inputs: Vec<f64> = inputs_str
+            .split(',')
+            .filter_map(|s| s.trim().parse().ok())
+            .collect();
+        
+        println!(">> Target-seeking quantum mathematics for variable '{}': target={}, inputs={:?}", 
+                var_name, target, inputs);
+        
+        let solution = self.math_engine.solve_target(target, &inputs, var_name, class_name)?;
+        
+        println!("== Solution found: {} = {} (accuracy: {}%)", 
+                solution.equation, solution.result, solution.accuracy);
         
         Ok(())
     }

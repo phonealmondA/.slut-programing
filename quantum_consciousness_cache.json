@@ -1,67 +1,40 @@
 {
-  "templates": {
-    "patternFinder_loop_1": {
-      "name": "patternFinder",
-      "func_type": "loop",
-      "parameter_count": 1,
-      "timestamp": 1750019283927,
-      "is_built": true,
-      "file_path": "functions/src/patternfinder.rs"
-    },
-    "mathProcessor_loop_1": {
-      "name": "mathProcessor",
-      "func_type": "loop",
-      "parameter_count": 1,
-      "timestamp": 1750019283870,
-      "is_built": true,
-      "file_path": "functions/src/mathprocessor.rs"
-    }
-  },
+  "templates": {},
   "variables": {},
   "quantum_states": {},
-  "variable_attempts": {},
-  "built_functions": {
-    "mathProcessor": {
-      "name": "mathProcessor",
-      "variants": [
-        {
-          "parameter_count": 1,
-          "parameter_pattern": "count",
-          "rust_function_name": "mathprocessor_count"
-        },
-        {
-          "parameter_count": 2,
-          "parameter_pattern": "range",
-          "rust_function_name": "mathprocessor_range"
-        },
-        {
-          "parameter_count": 3,
-          "parameter_pattern": "step",
-          "rust_function_name": "mathprocessor_step"
-        }
-      ],
-      "timestamp": 1750019283870
+  "variable_attempts": {
+    "result": [
+      {
+        "equation": "7 ^ 2",
+        "result": 49.0,
+        "timestamp": 1750022409161,
+        "accuracy": 93.0
+      }
+    ],
+    "answer": [
+      {
+        "equation": "3 * 5 * 8",
+        "result": 120.0,
+        "timestamp": 1750022409186,
+        "accuracy": 80.0
+      }
+    ]
+  },
+  "built_functions": {},
+  "math_solutions": {
+    "mathematical_consciousness-result-56-3,2,7": {
+      "result": 49.0,
+      "equation": "7 ^ 2",
+      "accuracy": 93.0,
+      "timestamp": 1750022409161,
+      "attempts": 1
     },
-    "patternFinder": {
-      "name": "patternFinder",
-      "variants": [
-        {
-          "parameter_count": 1,
-          "parameter_pattern": "count",
-          "rust_function_name": "patternfinder_count"
-        },
-        {
-          "parameter_count": 2,
-          "parameter_pattern": "range",
-          "rust_function_name": "patternfinder_range"
-        },
-        {
-          "parameter_count": 3,
-          "parameter_pattern": "step",
-          "rust_function_name": "patternfinder_step"
-        }
-      ],
-      "timestamp": 1750019283927
+    "mathematical_consciousness-answer-100-3,5,8": {
+      "result": 120.0,
+      "equation": "3 * 5 * 8",
+      "accuracy": 80.0,
+      "timestamp": 1750022409186,
+      "attempts": 1
     }
   }
 }

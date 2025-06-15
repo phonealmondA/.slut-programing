@@ -1,19 +1,14 @@
-* <main> math_consciousness_enhanced {
+* <main> mathematical_consciousness {
     ^ observe_execution {
-        speak("Building mathematical consciousness functions")
+        speak("Testing quantum mathematical target-seeking")
         
-        mathProcessor(params) <> function(loop)
+        speak("Simple two-number target seeking:")
+        result([56]) <> randomChoice([3, 2, 7])
         
-        result([7.5]) <> randomChoice([1,2,3])
-        speak(">> Quantum math target: ~result~")
+        speak("Three-number combination seeking:")
+        answer([100]) <> randomChoice([3, 5, 8])
         
-        speak("Processing mathematical sequences:")
-        mathProcessor(5)("console.log('Math iteration')")
         
-        speak("Creating pattern recognition functions:")
-        patternFinder(params) <> function(loop) 
-        patternFinder(1, 8)("console.log('Seeking patterns')")
-        
-        speak("Mathematical consciousness functions built and ready!")
+        speak("Mathematical consciousness testing complete!")
     }
 }
