@@ -315,7 +315,7 @@ impl QuantumTranspiler {
         }
         
         // Function execution: smartLoop(3)("console.log('hello')")
-        let poly_exec_regex = Regex::new(r#"(\w+)\s*\(\s*([^)]+)\s*\)\s*\(\s*"([^"]*)"\s*\)"#)?;
+        let poly_exec_regex = Regex::new(r#"(\w+)\s*\(\s*([^)]+)\s*\)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*\)"#)?;
         if let Some(captures) = poly_exec_regex.captures(statement) {
             let func_name = &captures[1];
             let params = &captures[2];

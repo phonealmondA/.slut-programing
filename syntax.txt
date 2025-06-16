@@ -1,0 +1,86 @@
+Conditional Logic Examples
+1. Conditional Execution (If-Then)
+slut// Traditional code:
+if (myNumber > 50) {
+    speak("Number is large");
+}
+
+// SLUT intention-driven approach:
+smartIf(myNumber > 50)("speak('Number is large')")
+// OR
+condition([myNumber > 50]) <> execute("speak('Number is large')")
+
+
+//New approach:
+test(4) <> calc(1,3,5)
+testb(9) <> calc(1,3,5)
+
+smartIf() <> function(if, elif, else)
+
+result <> smartIf(test,testb)
+
+woof <> result
+
+2. Conditional Variable Assignment
+slut// Traditional:
+if (score >= 90) {
+    grade = "A";
+} else {
+    grade = "B";
+}
+
+// SLUT approach:
+grade <> conditional([score >= 90], "A", "B")
+// OR
+smartChoice(score >= 90) <> options("A", "B")
+3. Conditional Loops (While-like)
+slut// Traditional:
+while (counter < 10) {
+    console.log(counter);
+    counter++;
+}
+
+// SLUT approach:
+smartWhile(counter < 10)("console.log(counter); counter++")
+// OR
+loopUntil([counter >= 10]) <> execute("console.log(counter); counter++")
+4. Multiple Conditions
+slut// Traditional:
+if (temperature > 80) {
+    action = "turn on AC";
+} else if (temperature < 60) {
+    action = "turn on heat";
+} else {
+    action = "do nothing";
+}
+
+// SLUT approach:
+action <> smartSelect([
+    [temperature > 80, "turn on AC"],
+    [temperature < 60, "turn on heat"],
+    [true, "do nothing"]
+])
+5. Conditional Math Target-Seeking
+slut// Only seek target if condition is met
+conditionalResult([100]) <> ifTrue(score > 50, randomChoice([25, 30, 45]))
+
+// Choose different targets based on condition
+dynamicTarget <> selectTarget(
+    [score > 90, [100]], 
+    [score > 70, [80]], 
+    [true, [60]]
+) <> randomChoice([20, 30, 40])
+6. Conditional Function Synthesis
+slut// Generate different function types based on conditions
+smartProcessor(data) <> function(
+    conditional([data.length > 100], "batch", "stream")
+)
+
+// Execute conditionally
+smartIf(userIsAdmin)("deleteFile('important.txt')")
+7. Pattern Matching Style
+slutresult <> match(userRole, [
+    ["admin", "Full access granted"],
+    ["user", "Limited access granted"], 
+    ["guest", "Read-only access"]
+])

@@ -7,7 +7,7 @@
 
 * <main> enhanced_consciousness {
     ^ observe_execution {
-        speak("Testing enhanced Rust quantum consciousness!")
+        speak("Testing enhanced Rust quantum consciousness with REAL CODE EXECUTION!")
         
         speak("=== Variable Storage and String Interpolation ===")
         
@@ -34,14 +34,26 @@
         combined([100]) <> randomChoice([result, 19, 6])
         speak("Combined result: ~combined~")
         
-        speak("=== Function Synthesis Integration ===")
+        speak("=== REAL CODE EXECUTION - Function Synthesis Integration ===")
         
         // Function synthesis
         smartLoop(params) <> function(loop)
         speak("Function synthesized: smartLoop")
         
-        // Using the built function
-        smartLoop(3)("console.log('Enhanced loop iteration')")
+        speak("** Testing COUNT-based loop (3 iterations):")
+        // This will now ACTUALLY print 3 times instead of simulating!
+        smartLoop(3)("println!(\"Real execution - iteration {}\")")
+        
+        speak("** Testing RANGE-based loop (5 to 8):")
+        // This will execute for i=5,6,7
+        smartLoop(5, 8)("println!(\"Range loop - value {}\")")
+        
+        speak("** Testing STEP-based loop (0 to 10 by 2):")
+        // This will execute for i=0,2,4,6,8
+        smartLoop(0, 10, 2)("println!(\"Step loop - even number {}\")")
+        
+        speak("** Testing simple message:")
+        smartLoop(2)("println!(\"Hello from real generated code!\")")
         
         speak("=== Advanced Variable Operations ===")
         
@@ -57,6 +69,14 @@
         choice <> randomChoice([10, 20, 30])
         speak("Random choice: ~choice~")
         
+        speak("=== MORE REAL CODE EXECUTION TESTS ===")
+        
+        speak("** Countdown sequence:")
+        smartLoop(5)("println!(\"Countdown: {}\")")
+        
+        speak("** Custom range demonstration:")
+        smartLoop(10, 13)("println!(\"Custom range value: {}\")")
+        
         speak("=== Final Results ===")
         woof result
         woof helper
@@ -64,6 +84,7 @@
         woof totalSum
         
         speak("Enhanced quantum consciousness demonstration complete!")
+        speak("REAL CODE EXECUTION IS NOW WORKING!")
         speak("All variables: myNumber=~myNumber~, result=~result~, helper=~helper~, calculated=~calculated~, totalSum=~totalSum~")
     }
 }
