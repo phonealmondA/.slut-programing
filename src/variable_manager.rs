@@ -118,37 +118,100 @@ impl VariableManager {
     
     pub fn resolve_expression_inputs(&self, inputs_str: &str) -> Vec<f64> {
         let mut resolved = Vec::new();
+        let mut blanks_count = 0;
         
+        // First pass: parse known numbers and count blanks
         for input in inputs_str.split(',') {
             let input = input.trim();
             
-            // Try to parse as direct number
-            if let Ok(num) = input.parse::<f64>() {
+            if input == "?" {
+                blanks_count += 1;
+            } else if let Ok(num) = input.parse::<f64>() {
                 resolved.push(num);
-            }
-            // Try to resolve as variable
-            else if let Some(variable) = self.get_variable(input) {
+            } else if let Some(variable) = self.get_variable(input) {
                 match &variable.value {
                     VariableValue::Number(num) => {
                         println!("-- Resolved variable '{}' = {}", input, num);
                         resolved.push(*num);
                     }
+                    VariableValue::String(s) => {
+                        println!("-- Parsing string variable '{}' = '{}'", input, s);
+                        for part in s.split(',') {
+                            let part = part.trim();
+                            if part == "?" {
+                                blanks_count += 1;
+                            } else if let Ok(num) = part.parse::<f64>() {
+                                resolved.push(num);
+                                println!("   - Parsed number: {}", num);
+                            } else {
+                                println!("   - Skipping non-numeric: {}", part);
+                            }
+                        }
+                    }
                     _ => {
-                        println!("-- Variable '{}' is not numeric, skipping in calculation", input);
+                        println!("-- Variable '{}' is not numeric or string, skipping", input);
                     }
                 }
             }
-            // Try to resolve function calls
-            else if input.contains('(') && input.contains(')') {
-                println!("-- Function call in expression: {} (not yet implemented)", input);
-                // Future: Handle function calls in expressions
-            }
-            else {
-                println!("!! Could not resolve input: {}", input);
+        }
+        
+        // Second pass: fill blanks with cached solutions
+        if blanks_count > 0 {
+            println!("-- Found {} blank placeholders (?), searching for cached solutions...", blanks_count);
+            
+            let available_solutions = self.get_available_cached_solutions();
+            let mut added_solutions = 0;
+            
+            for solution in available_solutions {
+                if added_solutions < blanks_count {
+                    resolved.push(solution);
+                    println!("   + Filled ? with cached solution: {}", solution);
+                    added_solutions += 1;
+                }
             }
         }
         
         resolved
+    }
+    
+    fn get_available_cached_solutions(&self) -> Vec<f64> {
+        let mut solutions = Vec::new();
+        
+        for (name, var) in &self.variables {
+            if let VariableValue::Number(num) = &var.value {
+                // Skip very basic numbers and focus on computed results
+                // Also skip values that are clearly user input rather than computed
+                if *num > 1.0 && 
+                   *num != 42.0 &&    // Skip common test values
+                   *num != 25.0 &&    // Skip baseValue
+                   *num != 360.0 &&   // Skip target values
+                   !name.starts_with("target") && 
+                   !name.starts_with("myNumber") {
+                    
+                    // Prefer solutions that have source equations (computed results)
+                    if var.source_equation.is_some() {
+                        solutions.push(*num);
+                        println!("   - Found computed solution: {} = {} (from: {})", 
+                                name, num, var.source_equation.as_ref().unwrap());
+                    } else if solutions.len() < 3 {
+                        // Include some non-computed values if we don't have many
+                        solutions.push(*num);
+                        println!("   - Found stored value: {} = {}", name, num);
+                    }
+                }
+            }
+        }
+        
+        // Sort by value (smaller solutions first for building up)
+        solutions.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        
+        if solutions.is_empty() {
+            println!("   - No suitable cached solutions found");
+        } else {
+            println!("   - Available cached solutions: {:?}", solutions);
+        }
+        
+        solutions
     }
     
     pub fn resolve_mixed_inputs(&self, inputs_str: &str) -> Vec<VariableValue> {

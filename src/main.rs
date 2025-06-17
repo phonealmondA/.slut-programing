@@ -1,4 +1,4 @@
-// src/main.rs - Enhanced with string interpolation, variable storage, and function hierarchy
+// src/main.rs - Enhanced with interactive mode and string interpolation
 
 use anyhow::Result;
 use clap::Parser;
@@ -8,28 +8,35 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::io::{self, Write};
 
 mod function_builder;
 mod function_executor;
 mod math_engine;
 mod equation_solver;
 mod variable_manager;
+mod interactive_engine;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
 use math_engine::MathEngine;
 use variable_manager::VariableManager;
+use interactive_engine::InteractiveEngine;
 
 #[derive(Parser)]
 #[command(name = "quantum")]
 #[command(about = "Quantum Consciousness Programming Language Transpiler")]
 struct Args {
-    /// Input .slut file
-    file: PathBuf,
+    /// Input .slut file (ignored in interactive mode)
+    file: Option<PathBuf>,
     
     /// Number of observations (1-10)
     #[arg(short, long, default_value = "1")]
     observations: u32,
+    
+    /// Interactive mode - solve mathematical problems interactively
+    #[arg(short, long)]
+    interactive: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -120,9 +127,31 @@ pub struct MathSolution {
 fn main() -> Result<()> {
     let args = Args::parse();
     
+    // Check if interactive mode is requested
+    if args.interactive {
+        println!("** Quantum Consciousness Interactive Mode **");
+        println!(">> Starting interactive mathematical reasoning engine");
+        
+        let mut interactive_engine = InteractiveEngine::new()?;
+        interactive_engine.run_interactive_session()?;
+        
+        return Ok(());
+    }
+    
+    // Original file execution mode
+    let file_path = match args.file {
+        Some(path) => path,
+        None => {
+            println!("!! Error: File path required in non-interactive mode");
+            println!("   Usage: cargo run -- file.slut");
+            println!("   Or use: cargo run -- --interactive");
+            return Ok(());
+        }
+    };
+    
     println!("** Quantum Consciousness Observer (Rust Edition - Enhanced)");
     println!(">> Building programs with variable storage, string interpolation, and function hierarchy");
-    println!(">> Executing: {:?}", args.file);
+    println!(">> Executing: {:?}", file_path);
     
     let mut transpiler = QuantumTranspiler::new()?;
     
@@ -131,7 +160,7 @@ fn main() -> Result<()> {
             println!("== OBSERVATION {} ==", i);
         }
         
-        transpiler.execute_file(&args.file)?;
+        transpiler.execute_file(&file_path)?;
         
         if i < args.observations {
             std::thread::sleep(std::time::Duration::from_secs(2));
@@ -280,6 +309,14 @@ impl QuantumTranspiler {
             return Ok(());
         }
         
+        // User input assignment: variable <> userIn("prompt")
+        let user_input_regex = Regex::new(r#"(\w+)\s*<>\s*userIn\s*\(\s*"([^"]*)"\s*\)"#)?;
+        if let Some(captures) = user_input_regex.captures(statement) {
+            let var_name = &captures[1];
+            let prompt = &captures[2];
+            return self.execute_user_input_assignment(var_name, prompt);
+        }
+        
         // Variable assignment with function calls: result <> someFunction()
         let var_function_regex = Regex::new(r"(\w+)\s*<>\s*(\w+)\s*\(\s*\)")?;
         if let Some(captures) = var_function_regex.captures(statement) {
@@ -330,6 +367,33 @@ impl QuantumTranspiler {
             return self.output_variable(var_name);
         }
         
+        Ok(())
+    }
+    
+    fn execute_user_input_assignment(&mut self, var_name: &str, prompt: &str) -> Result<()> {
+        println!(">> User input requested for variable '{}'", var_name);
+        
+        print!("{}: ", prompt);
+        io::stdout().flush()?;
+        
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+        
+        // Try to parse as number first, then fall back to string
+        let value = if let Ok(num) = input.parse::<f64>() {
+            VariableValue::Number(num)
+        } else {
+            VariableValue::String(input.to_string())
+        };
+        
+        self.variable_manager.store_variable(
+            var_name,
+            value,
+            Some(format!("userIn(\"{}\")", prompt)),
+        )?;
+        
+        println!("-- User input stored in variable '{}'", var_name);
         Ok(())
     }
     
@@ -551,7 +615,24 @@ impl QuantumTranspiler {
     }
     
     fn solve_target_math(&mut self, var_name: &str, target_str: &str, inputs_str: &str, class_name: &str) -> Result<()> {
-        let target: f64 = target_str.parse()?;
+        // Handle target from variable or direct number
+        let target: f64 = if let Ok(num) = target_str.parse::<f64>() {
+            num
+        } else if let Some(variable) = self.variable_manager.get_variable(target_str) {
+            match &variable.value {
+                VariableValue::Number(n) => {
+                    println!("-- Resolved target variable '{}' = {}", target_str, n);
+                    *n
+                },
+                _ => {
+                    println!("!! Target variable '{}' is not numeric", target_str);
+                    return Ok(());
+                }
+            }
+        } else {
+            println!("!! Could not resolve target: {}", target_str);
+            return Ok(());
+        };
         
         // Use variable manager to resolve inputs (supports both numbers and variables)
         let inputs = self.variable_manager.resolve_expression_inputs(inputs_str);

@@ -1,0 +1,43 @@
+* <main> interactive_math_solver {
+    ^ observe_execution {
+        speak("=== Interactive Quantum Mathematical Reasoning ===")
+        speak("This system learns from each problem and builds knowledge over time!")
+        speak("")
+        
+        // User input for target and numbers
+        target <> userIn("Enter target number you want to reach")
+        numbers <> userIn("Enter available numbers (comma-separated)")
+        
+        speak("Processing your request...")
+        speak("Target: ~target~")
+        speak("Available numbers: ~numbers~")
+        
+        // Enhanced target-seeking that can use cached solutions
+        solution([target]) <> randomChoice([numbers])
+        
+        speak("")
+        speak("=== SOLUTION FOUND ===")
+        speak("Result: ~solution~")
+        speak("This solution is now cached for future problems!")
+        speak("")
+        
+        // Demonstrate learning by asking for another problem
+        speak("Let's try another problem to see the learning in action...")
+        
+        target2 <> userIn("Enter second target number")
+        numbers2 <> userIn("Enter available numbers for second problem")
+        
+        solution2([target2]) <> randomChoice([numbers2])
+        
+        speak("=== SECOND SOLUTION ===")
+        speak("Result: ~solution2~")
+        speak("")
+        
+        speak("=== FINAL RESULTS ===")
+        woof solution
+        woof solution2
+        
+        speak("Both solutions are now part of the system's knowledge!")
+        speak("Future runs will be able to use these results to solve bigger problems.")
+    }
+}

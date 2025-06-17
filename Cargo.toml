@@ -1,8 +1,8 @@
 [package]
 name = "quantum_slut_transpiler"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
-description = "Quantum Consciousness Programming Language - Enhanced with variable storage and string interpolation"
+description = "Quantum Consciousness Programming Language - Enhanced with interactive mathematical reasoning"
 
 [[bin]]
 name = "quantum"
@@ -19,3 +19,4 @@ rand = "0.8"
 [features]
 default = []
 enhanced = []  # For future enhancements
+interactive = []  # For interactive mode
