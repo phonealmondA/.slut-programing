@@ -1,4 +1,4 @@
-// src/main.rs - Enhanced with interactive mode and string interpolation
+// src/main.rs - Enhanced with interactive mode, string interpolation, and game generation
 
 use anyhow::Result;
 use clap::Parser;
@@ -16,12 +16,14 @@ mod math_engine;
 mod equation_solver;
 mod variable_manager;
 mod interactive_engine;
+mod game_generator;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
 use math_engine::MathEngine;
 use variable_manager::VariableManager;
 use interactive_engine::InteractiveEngine;
+use game_generator::GameGenerator;
 
 #[derive(Parser)]
 #[command(name = "quantum")]
@@ -149,8 +151,8 @@ fn main() -> Result<()> {
         }
     };
     
-    println!("** Quantum Consciousness Observer (Rust Edition - Enhanced)");
-    println!(">> Building programs with variable storage, string interpolation, and function hierarchy");
+    println!("** Quantum Consciousness Observer (Rust Edition - Enhanced with Game Generation)");
+    println!(">> Building programs with variable storage, string interpolation, function hierarchy, and game creation");
     println!(">> Executing: {:?}", file_path);
     
     let mut transpiler = QuantumTranspiler::new()?;
@@ -179,6 +181,7 @@ struct QuantumTranspiler {
     math_engine: MathEngine,
     variable_manager: VariableManager,
     current_class_name: String,
+    game_generator: Option<GameGenerator>,
 }
 
 impl QuantumTranspiler {
@@ -213,6 +216,7 @@ impl QuantumTranspiler {
             math_engine,
             variable_manager,
             current_class_name: String::new(),
+            game_generator: None,
         })
     }
     
@@ -237,6 +241,111 @@ impl QuantumTranspiler {
         let source = fs::read_to_string(file_path)?;
         self.parse_and_execute(&source)?;
         self.save_cache()?;
+        
+        // Check if we should generate a game after successful execution
+        if self.should_generate_game(file_path) {
+            self.prompt_for_game_generation(file_path)?;
+        }
+        
+        Ok(())
+    }
+    
+    fn should_generate_game(&self, file_path: &PathBuf) -> bool {
+        // Check if this looks like a game program
+        if let Some(file_name) = file_path.file_stem() {
+            let name = file_name.to_string_lossy().to_lowercase();
+            
+            // Check for game-related keywords in filename
+            if name.contains("game") || name.contains("asteroids") || name.contains("shooter") {
+                return true;
+            }
+        }
+        
+        // Check if variables suggest a game (screen dimensions, player coordinates, etc.)
+        let has_screen_vars = self.variable_manager.variable_exists("screenWidth") 
+            || self.variable_manager.variable_exists("screenHeight");
+        let has_player_vars = self.variable_manager.variable_exists("playerX") 
+            || self.variable_manager.variable_exists("playerY");
+        let has_game_vars = self.variable_manager.variable_exists("asteroidCount")
+            || self.variable_manager.variable_exists("playerHealth")
+            || self.variable_manager.variable_exists("score");
+            
+        has_screen_vars && (has_player_vars || has_game_vars)
+    }
+    
+    fn prompt_for_game_generation(&mut self, file_path: &PathBuf) -> Result<()> {
+        println!("\n=== GAME GENERATION DETECTED ===");
+        println!("The quantum consciousness system detected game-related variables:");
+        println!("This program appears to be describing a game!");
+        println!("");
+        
+        // Show detected game variables
+        if self.variable_manager.variable_exists("screenWidth") {
+            if let Some(val) = self.variable_manager.get_numeric_value("screenWidth") {
+                println!("  Screen Width: {}", val);
+            }
+        }
+        if self.variable_manager.variable_exists("screenHeight") {
+            if let Some(val) = self.variable_manager.get_numeric_value("screenHeight") {
+                println!("  Screen Height: {}", val);
+            }
+        }
+        if self.variable_manager.variable_exists("playerX") {
+            if let Some(val) = self.variable_manager.get_numeric_value("playerX") {
+                println!("  Player X: {}", val);
+            }
+        }
+        if self.variable_manager.variable_exists("playerY") {
+            if let Some(val) = self.variable_manager.get_numeric_value("playerY") {
+                println!("  Player Y: {}", val);
+            }
+        }
+        if self.variable_manager.variable_exists("asteroidCount") {
+            if let Some(val) = self.variable_manager.get_numeric_value("asteroidCount") {
+                println!("  Asteroid Count: {}", val);
+            }
+        }
+        
+        println!("");
+        print!("Generate a playable Asteroids game from these intentions? (y/n): ");
+        io::stdout().flush()?;
+        
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+        
+        if input == "y" || input == "yes" {
+            self.generate_game_from_intentions(file_path)?;
+        } else {
+            println!("Game generation skipped. Program execution complete.");
+        }
+        
+        Ok(())
+    }
+    
+    fn generate_game_from_intentions(&mut self, file_path: &PathBuf) -> Result<()> {
+        println!("\n>> Generating playable game from quantum consciousness intentions...");
+        
+        // Create game generator if not exists
+        if self.game_generator.is_none() {
+            self.game_generator = Some(GameGenerator::new("generated_games")?);
+        }
+        
+        // Determine game name from file
+        let game_name = if let Some(file_stem) = file_path.file_stem() {
+            file_stem.to_string_lossy().to_string()
+        } else {
+            "quantum_game".to_string()
+        };
+        
+        // Generate the game
+        if let Some(ref mut generator) = self.game_generator {
+            generator.generate_asteroids_game(&game_name, &self.variable_manager.get_all_variables())?;
+            generator.create_game_launcher_script(&game_name)?;
+            generator.generate_readme(&game_name)?;
+            generator.print_generation_summary(&game_name);
+        }
+        
         Ok(())
     }
     

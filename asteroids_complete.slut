@@ -1,0 +1,182 @@
+* gameState {
+    ^ observe_execution {
+        // Game world setup
+        screenWidth <> 800
+        screenHeight <> 600
+        
+        // Player ship setup
+        playerX <> calc(screenWidth, 2)  // Center X
+        playerY <> calc(screenHeight, 2) // Center Y
+        playerAngle <> 0
+        playerSpeed <> 0
+        playerHealth <> 100
+        
+        // Physics constants
+        maxSpeed <> 8
+        acceleration <> 0.5
+        friction <> 0.98
+        rotationSpeed <> 5
+        
+        woof playerX
+        woof playerY
+    }
+}
+
+* asteroidField {
+    ^ observe_execution {
+        // Generate asteroid positions and sizes
+        asteroidCount <> 8
+        
+        // Use quantum math to generate varied asteroid properties
+        size1([50]) <> randomChoice([10, 15, 20, 5])  // Large asteroid
+        size2([30]) <> randomChoice([8, 12, 10])      // Medium asteroid
+        size3([25]) <> randomChoice([6, 9, 10])       // Small asteroid
+        
+        // Asteroid positions (avoiding center where player spawns)
+        pos1X([150]) <> randomChoice([50, 80, 20])
+        pos1Y([120]) <> randomChoice([60, 40, 20])
+        
+        pos2X([650]) <> randomChoice([600, 50])
+        pos2Y([480]) <> randomChoice([400, 80])
+        
+        speak("Asteroid field generated with ~asteroidCount~ asteroids")
+        speak("Large asteroid at (~pos1X~, ~pos1Y~) size ~size1~")
+        speak("Medium asteroid at (~pos2X~, ~pos2Y~) size ~size2~")
+        
+        woof asteroidCount
+        woof size1
+        woof pos1X
+    }
+}
+
+* gamePhysics {
+    ^ observe_execution {
+        // Get current game state
+        state <> gameState()
+        field <> asteroidField()
+        
+        // Physics calculations using quantum math
+        newPlayerX([400]) <> randomChoice([state, 50, 350]) // Player movement
+        newPlayerY([300]) <> randomChoice([state, 200, 100])
+        
+        // Collision detection - use math to determine if objects overlap
+        collisionDistance([30]) <> randomChoice([15, 10, 5]) // Minimum safe distance
+        
+        speak("Physics calculated: Player at (~newPlayerX~, ~newPlayerY~)")
+        speak("Collision threshold: ~collisionDistance~")
+        
+        woof newPlayerX
+        woof newPlayerY
+    }
+}
+
+* inputHandler {
+    ^ observe_execution {
+        speak("=== GAME INPUT SYSTEM ===")
+        
+        // User controls (in real game, this would be keyboard input)
+        action <> userIn("Enter action (thrust/left/right/shoot/quit)")
+        
+        // Convert input to game state changes using quantum math
+        thrustPower([5]) <> randomChoice([2, 2, 1])      // Thrust strength
+        turnAngle([15]) <> randomChoice([10, 3, 2])      // Turn amount
+        bulletSpeed([12]) <> randomChoice([8, 2, 2])     // Bullet velocity
+        
+        speak("Action received: ~action~")
+        speak("Thrust power: ~thrustPower~")
+        speak("Turn angle: ~turnAngle~")
+        speak("Bullet speed: ~bulletSpeed~")
+        
+        woof action
+        woof thrustPower
+    }
+}
+
+* gameLoop {
+    ^ observe_execution {
+        // Initialize game systems
+        physics <> gamePhysics()
+        input <> inputHandler()
+        
+        // Game scoring using quantum mathematics
+        score([0]) <> randomChoice([0])  // Starting score
+        lives([3]) <> randomChoice([3])  // Starting lives
+        
+        // Level progression
+        level([1]) <> randomChoice([1])
+        asteroidsRemaining([8]) <> randomChoice([4, 2, 2])
+        
+        speak("=== ASTEROIDS GAME LOOP ===")
+        speak("Score: ~score~")
+        speak("Lives: ~lives~")
+        speak("Level: ~level~")
+        speak("Asteroids remaining: ~asteroidsRemaining~")
+        
+        woof score
+        woof lives
+    }
+}
+
+* gameRenderer {
+    ^ observe_execution {
+        speak("=== RENDERING GAME STATE ===")
+        
+        // Get current game state
+        loop <> gameLoop()
+        
+        // Generate render coordinates using quantum math
+        shipX([400]) <> randomChoice([350, 30, 20])
+        shipY([300]) <> randomChoice([250, 30, 20])
+        
+        // Asteroid render positions  
+        ast1X([150]) <> randomChoice([100, 30, 20])
+        ast1Y([120]) <> randomChoice([80, 25, 15])
+        
+        ast2X([650]) <> randomChoice([600, 30, 20])
+        ast2Y([480]) <> randomChoice([450, 20, 10])
+        
+        speak("Ship rendered at (~shipX~, ~shipY~)")
+        speak("Asteroid 1 at (~ast1X~, ~ast1Y~)")
+        speak("Asteroid 2 at (~ast2X~, ~ast2Y~)")
+        
+        // Use function synthesis for rendering
+        smartLoop(params) <> function(loop)
+        
+        speak("** Rendering game frame:")
+        smartLoop(3)("println!(\"Drawing game object {}\")")
+        
+        woof shipX
+        woof shipY
+    }
+}
+
+* <main> asteroids_game {
+    ^ observe_execution {
+        speak("=== QUANTUM ASTEROIDS GAME ===")
+        speak("Demonstrating intention-driven game programming!")
+        speak("")
+        
+        // Initialize all game systems
+        gameData <> gameState()
+        asteroids <> asteroidField()
+        gameRender <> gameRenderer()
+        
+        speak("=== GAME SYSTEMS INITIALIZED ===")
+        speak("Game state calculated with quantum consciousness")
+        speak("Asteroid field generated using mathematical reasoning")
+        speak("Rendering system active")
+        speak("")
+        
+        // Calculate final game score using all generated data
+        finalScore([1000]) <> randomChoice([gameData, asteroids, 300, 200])
+        
+        speak("=== GAME COMPLETE ===")
+        speak("Final Score: ~finalScore~")
+        speak("")
+        speak("This demonstrates how the quantum consciousness system")
+        speak("can generate game logic, physics, and state management")
+        speak("through intention-driven programming!")
+        
+        woof finalScore
+    }
+}

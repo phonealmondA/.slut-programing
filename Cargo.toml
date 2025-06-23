@@ -1,8 +1,8 @@
 [package]
 name = "quantum_slut_transpiler"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
-description = "Quantum Consciousness Programming Language - Enhanced with interactive mathematical reasoning"
+description = "Quantum Consciousness Programming Language - Enhanced with Game Generation"
 
 [[bin]]
 name = "quantum"
@@ -20,3 +20,4 @@ rand = "0.8"
 default = []
 enhanced = []  # For future enhancements
 interactive = []  # For interactive mode
+game_generation = []  # For game generation capabilities
