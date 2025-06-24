@@ -1,1 +1,16 @@
 /target
+
+# Generated games and executables
+/generated_games/
+*.exe
+run_*.bat
+run_*.sh
+
+# Interactive session data
+/test_interactive/
+
+# Generated function libraries (optional - you might want to keep these)
+# /functions/
+
+# Quantum consciousness cache (optional - contains learned solutions)
+# quantum_consciousness_cache.json

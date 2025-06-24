@@ -25,7 +25,7 @@
 * asteroidField {
     ^ observe_execution {
         // Generate asteroid positions and sizes
-        asteroidCount <> 8
+        asteroidCount <> 12
         
         // Use quantum math to generate varied asteroid properties
         size1([50]) <> randomChoice([10, 15, 20, 5])  // Large asteroid
