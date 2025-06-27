@@ -1,9 +1,10 @@
 @echo off
-title Quantum Consciousness - Game Generation Demo
+title SLUT Technology - Game Generation Demo
 color 0A
 
 echo.
-echo ** Quantum Consciousness Game Generation Demo **
+echo ** SLUT Technology Game Generation Demo **
+echo >> Simple Language Understanding Technology
 echo >> From .slut intentions to playable Asteroids game
 echo.
 
@@ -27,7 +28,7 @@ if not exist "asteroids_complete.slut" (
     exit /b
 )
 
-echo Running quantum consciousness on asteroids_complete.slut...
+echo Running SLUT technology on asteroids_complete.slut...
 echo.
 cargo run --release -- asteroids_complete.slut
 
@@ -63,47 +64,9 @@ if exist "%GAME_NAME%.exe" (
 )
 
 echo.
-echo Files that should be created:
-if exist "generated_games\%GAME_NAME%\src\main.rs" (
-    echo   ✓ generated_games\%GAME_NAME%\src\main.rs
-) else (
-    echo   ✗ generated_games\%GAME_NAME%\src\main.rs - MISSING
-)
-
-if exist "generated_games\%GAME_NAME%\Cargo.toml" (
-    echo   ✓ generated_games\%GAME_NAME%\Cargo.toml
-) else (
-    echo   ✗ generated_games\%GAME_NAME%\Cargo.toml - MISSING
-)
-
-if exist "run_%GAME_NAME%.bat" (
-    echo   ✓ run_%GAME_NAME%.bat
-) else (
-    echo   ✗ run_%GAME_NAME%.bat - MISSING
-)
-
-if exist "%GAME_NAME%.exe" (
-    echo   ✓ %GAME_NAME%.exe
-) else (
-    echo   ✗ %GAME_NAME%.exe - MISSING
-)
-
-echo.
-echo Debug information:
-echo   Current directory: %cd%
-dir /b *.slut 2>nul | findstr "asteroids" && echo   Found .slut files above
-dir /b *.exe 2>nul | findstr "asteroids" && echo   Found .exe files above
-if exist "generated_games" (
-    echo   ✓ generated_games directory exists
-    dir /b generated_games 2>nul | findstr "asteroids" && echo   Found game projects above
-) else (
-    echo   ✗ generated_games directory missing
-)
-
-echo.
 echo This demonstrates the complete workflow:
 echo   1. Write intentions in .slut file ✓
-echo   2. Quantum consciousness analyzes and executes
+echo   2. SLUT technology analyzes and executes
 echo   3. System detects game variables  
 echo   4. User confirms game generation (y/n prompt)
 echo   5. Generates complete Rust game project

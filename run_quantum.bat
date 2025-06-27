@@ -1,10 +1,11 @@
 @echo off
-title Quantum Consciousness Runner - Function Building Edition
+title SLUT Technology Runner - Function Building Edition
 color 0A
 setlocal enabledelayedexpansion
 
 echo.
-echo ** Quantum Consciousness Observer - Function Building Edition **
+echo ** SLUT Technology Observer - Function Building Edition **
+echo >> Simple Language Understanding Technology
 echo >> Building real code from your intentions
 echo.
 
