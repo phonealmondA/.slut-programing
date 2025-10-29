@@ -4,7 +4,6 @@ pub mod mathprocessor;
 pub mod patternfinder;
 pub mod loopbuilder;
 
-
 pub use smartloop::*;
 pub use sharedloop::*;
 pub use mathprocessor::*;

@@ -1,1 +1,78 @@
-/target
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock
+# NOTE: Keep this file for binary projects to ensure reproducible builds
+# Uncomment the line below if you want to exclude it (common for libraries)
+# Cargo.lock
+
+# Cache and session files
+quantum_consciousness_cache.json
+test_interactive/
+*.cache
+
+# Generated function files (keep only lib.rs, exclude all generated files)
+functions/src/*
+!functions/src/lib.rs
+
+# Backup files
+*~
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.project
+.settings/
+.classpath
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Log files
+*.log
+
+# Debug files
+*.dmp
+
+# Documentation build
+/doc/
+
+# Benchmark results
+/benches/results/
+
+# Test coverage
+/coverage/
+*.profdata
+*.profraw
+
+# Node modules (if using any JS tooling)
+node_modules/
+
+# Python virtual environments (if using any Python tooling)
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Temporary build files
+*.o
+*.obj
+*.exe
+*.out
+*.app

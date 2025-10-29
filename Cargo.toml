@@ -1,6 +1,6 @@
 [package]
 name = "quantum_slut_transpiler"
-version = "0.1.0"
+version = "0.4.0"
 edition = "2021"
 
 [[bin]]
@@ -11,6 +11,23 @@ path = "src/main.rs"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 regex = "1.0"
-clap = { version = "4.0", features = ["derive"] }
+clap = { version = "4.4", features = ["derive"] }
 anyhow = "1.0"
 rand = "0.8"
+
+# Phase 1: Core improvements
+tracing = "0.1"
+tracing-subscriber = "0.3"
+rayon = "1.8"
+evalexpr = "11.3"
+
+# Phase 1: CLI improvements
+dialoguer = "0.11"
+indicatif = "0.17"
+colored = "2.1"
+
+[features]
+default = []
+enhanced = []
+interactive = []
+game_generation = []
