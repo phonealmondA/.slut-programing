@@ -18,6 +18,7 @@ mod variable_manager;
 mod interactive_engine;
 mod condition_evaluator;
 mod loop_executor;
+mod memory;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
@@ -235,13 +236,23 @@ impl QuantumTranspiler {
     }
     
     fn save_cache(&mut self) -> Result<()> {
-        
+
         self.cache.math_solutions = self.math_engine.get_solutions();
         self.cache.variable_attempts = self.math_engine.get_variable_attempts();
         self.cache.variables = self.variable_manager.get_all_variables();
-        
+
+        // Save JSON (for backward compatibility)
         let content = serde_json::to_string_pretty(&self.cache)?;
         fs::write("quantum_consciousness_cache.json", content)?;
+
+        // Also save binary format (Phase 1 memory optimization)
+        use memory::BinaryCache;
+        if let Ok(binary_cache) = BinaryCache::from_hashmap(self.cache.math_solutions.clone()) {
+            if let Err(e) = binary_cache.save_to_disk() {
+                warn!("!! Failed to save binary cache: {}", e);
+            }
+        }
+
         Ok(())
     }
     
