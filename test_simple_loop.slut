@@ -1,7 +1,0 @@
-* <main> SimpleTest {
-    ^ observe_execution {
-        speak("Starting")
-        loop <> count(2) { speak("Hi") }
-        speak("Done")
-    }
-}
