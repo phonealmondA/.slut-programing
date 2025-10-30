@@ -1,0 +1,44 @@
+* <main> RangeLoopTest {
+    ^ observe_execution {
+        speak("=== Testing Range Loops ===")
+
+        # Test 1: Simple range
+        speak("Test 1: Simple range")
+        loop <> range(0, 5) as i {
+            speak("Number: ~i~")
+        }
+
+        # Test 2: Range with variables
+        speak("Test 2: Range with variables")
+        start <> 10
+        end <> 15
+        loop <> range(start, end) as num {
+            speak("Value: ~num~")
+        }
+
+        # Test 3: Using loop variable in calculations
+        speak("Test 3: Calculations with loop variable")
+        loop <> range(1, 6) as n {
+            square <> calc(n, n)
+            speak("~n~ squared is ~square~")
+        }
+
+        # Test 4: Math solving with loop variable
+        speak("Test 4: Math solving in loop")
+        loop <> range(1, 4) as target {
+            result([target]) <> randomChoice([1, 2])
+            speak("Target ~target~ = ~result~")
+        }
+
+        # Test 5: Nested range loops
+        speak("Test 5: Multiplication table")
+        loop <> range(1, 4) as i {
+            loop <> range(1, 4) as j {
+                product <> calc(i, j)
+                speak("~i~ * ~j~ = ~product~")
+            }
+        }
+
+        speak("=== All range loop tests complete ===")
+    }
+}

@@ -1,0 +1,12 @@
+* <main> NestedTest {
+^ observe_execution {
+speak("Testing nested loops")
+loop <> range(1, 3) as i {
+speak("Outer: ~i~")
+loop <> range(1, 3) as j {
+speak("  Inner: ~j~")
+}
+}
+speak("Done")
+}
+}

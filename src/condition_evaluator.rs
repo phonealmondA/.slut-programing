@@ -24,8 +24,6 @@ impl ConditionEvaluator {
         condition: &str,
         variables: &HashMap<String, StoredVariable>
     ) -> Result<bool> {
-        println!("-- Evaluating condition: {}", condition);
-
         // Create evalexpr context
         let mut context = HashMapContext::new();
 
@@ -50,7 +48,6 @@ impl ConditionEvaluator {
         // Evaluate the boolean expression
         match eval_boolean_with_context(condition, &context) {
             Ok(result) => {
-                println!("   Condition result: {}", result);
                 Ok(result)
             }
             Err(e) => {

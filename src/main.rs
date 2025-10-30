@@ -17,6 +17,7 @@ mod equation_solver;
 mod variable_manager;
 mod interactive_engine;
 mod condition_evaluator;
+mod loop_executor;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
@@ -24,6 +25,7 @@ use math_engine::MathEngine;
 use variable_manager::VariableManager;
 use interactive_engine::InteractiveEngine;
 use condition_evaluator::ConditionEvaluator;
+use loop_executor::LoopExecutor;
 
 #[derive(Parser)]
 #[command(name = "quantum")]
@@ -183,6 +185,7 @@ struct QuantumTranspiler {
     math_engine: MathEngine,
     variable_manager: VariableManager,
     condition_evaluator: ConditionEvaluator,
+    loop_executor: LoopExecutor,
     current_class_name: String,
 }
 
@@ -210,6 +213,7 @@ impl QuantumTranspiler {
         let math_engine = MathEngine::new(cache.math_solutions.clone(), cache.variable_attempts.clone());
         let variable_manager = VariableManager::new(cache.variables.clone());
         let condition_evaluator = ConditionEvaluator::new();
+        let loop_executor = LoopExecutor::new();
 
         Ok(Self {
             cache,
@@ -219,6 +223,7 @@ impl QuantumTranspiler {
             math_engine,
             variable_manager,
             condition_evaluator,
+            loop_executor,
             current_class_name: String::new(),
         })
     }
@@ -296,7 +301,7 @@ impl QuantumTranspiler {
     }
     
     fn execute_main_body(&mut self, body: &str, class_name: &str) -> Result<()> {
-        let mut lines = body.lines().collect::<Vec<&str>>();
+        let lines = body.lines().collect::<Vec<&str>>();
         let mut i = 0;
 
         while i < lines.len() {
@@ -305,6 +310,50 @@ impl QuantumTranspiler {
             // Skip empty lines and comments
             if line.is_empty() || line.starts_with('#') {
                 i += 1;
+                continue;
+            }
+
+            // Check if this is the start of a loop statement
+            if line.starts_with("loop") && line.contains("<>") {
+                // Collect the entire loop statement across multiple lines
+                let mut full_statement = String::new();
+                let mut brace_count = 0;
+                let mut in_loop = false;
+
+                while i < lines.len() {
+                    let current_line = lines[i].trim();
+
+                    if current_line.is_empty() {
+                        i += 1;
+                        continue;
+                    }
+
+                    // Track braces
+                    brace_count += current_line.chars().filter(|&c| c == '{').count() as i32;
+                    brace_count -= current_line.chars().filter(|&c| c == '}').count() as i32;
+
+                    // Add line to statement
+                    if full_statement.is_empty() {
+                        full_statement.push_str(current_line);
+                    } else {
+                        full_statement.push('\n');
+                        full_statement.push_str(current_line);
+                    }
+
+                    if brace_count > 0 {
+                        in_loop = true;
+                    }
+
+                    i += 1;
+
+                    // Break when we've closed all braces
+                    if in_loop && brace_count == 0 {
+                        break;
+                    }
+                }
+
+                // Execute the complete loop statement
+                self.execute_statement(&full_statement, class_name)?;
                 continue;
             }
 
@@ -377,7 +426,19 @@ impl QuantumTranspiler {
     }
     
     fn execute_statement(&mut self, statement: &str, class_name: &str) -> Result<()> {
-        // Check for selection statement (if/elif/else) - must be checked FIRST
+        // Check for break statement - must be checked FIRST
+        if statement.trim() == "break" {
+            self.loop_executor.signal_break();
+            return Ok(());
+        }
+
+        // Check for continue statement
+        if statement.trim() == "continue" {
+            self.loop_executor.signal_continue();
+            return Ok(());
+        }
+
+        // Check for selection statement (if/elif/else)
         let selection_regex = Regex::new(
             r"if\s*<>\s*\(([^)]+)\)((?:\s*<elif>\s*\([^)]+\))*)\s*<else>\s*\(([^)]+)\)\s*\{([\s\S]*?)\}"
         )?;
@@ -441,6 +502,44 @@ impl QuantumTranspiler {
             }
 
             return self.execute_selection_statement(conditions, bodies, class_name);
+        }
+
+        // Check for count loop - PHASE 1
+        let count_loop_regex = Regex::new(
+            r"loop\s*<>\s*count\s*\(\s*([^)]+)\s*\)\s*\{([\s\S]*?)\}"
+        )?;
+
+        if let Some(captures) = count_loop_regex.captures(statement) {
+            let count_expr = &captures[1];
+            let body = &captures[2];
+
+            return self.execute_count_loop(count_expr, body, class_name);
+        }
+
+        // Check for range loop - PHASE 2
+        let range_loop_regex = Regex::new(
+            r"loop\s*<>\s*range\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)\s*as\s+(\w+)\s*\{([\s\S]*?)\}"
+        )?;
+
+        if let Some(captures) = range_loop_regex.captures(statement) {
+            let start_expr = &captures[1];
+            let end_expr = &captures[2];
+            let loop_var = &captures[3];
+            let body = &captures[4];
+
+            return self.execute_range_loop(start_expr, end_expr, loop_var, body, class_name);
+        }
+
+        // Check for while loop - PHASE 3
+        let while_loop_regex = Regex::new(
+            r"loop\s*<>\s*while\s*\(\s*([^)]+)\s*\)\s*\{([\s\S]*?)\}"
+        )?;
+
+        if let Some(captures) = while_loop_regex.captures(statement) {
+            let condition = &captures[1];
+            let body = &captures[2];
+
+            return self.execute_while_loop(condition, body, class_name);
         }
 
         let speak_interpolation_regex = Regex::new(r#"speak\s*\(\s*"([^"]*)"\s*\)"#)?;
@@ -508,29 +607,26 @@ impl QuantumTranspiler {
     }
     
     fn execute_user_input_assignment(&mut self, var_name: &str, prompt: &str) -> Result<()> {
-        println!(">> User input requested for variable '{}'", var_name);
-        
         print!("{}: ", prompt);
         io::stdout().flush()?;
-        
+
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
         let input = input.trim();
-        
-        
+
+
         let value = if let Ok(num) = input.parse::<f64>() {
             VariableValue::Number(num)
         } else {
             VariableValue::String(input.to_string())
         };
-        
+
         self.variable_manager.store_variable(
             var_name,
             value,
             Some(format!("userIn(\"{}\")", prompt)),
         )?;
-        
-        println!("-- User input stored in variable '{}'", var_name);
+
         Ok(())
     }
     
@@ -559,32 +655,24 @@ impl QuantumTranspiler {
     }
     
     fn execute_function_call_assignment(&mut self, var_name: &str, function_name: &str, _class_name: &str) -> Result<()> {
-        println!(">> Executing function call: {} = {}()", var_name, function_name);
-        
         if let Some(_function_result) = self.cache.function_results.get(function_name) {
-            let start_time = std::time::Instant::now();
-            
             let function_result = self.execute_function_body(function_name)?;
-            let execution_time = start_time.elapsed().as_secs_f64() * 1000.0;
-            
+
             self.variable_manager.store_variable(
                 var_name,
                 function_result,
                 Some(format!("{}()", function_name)),
             )?;
-            
-            println!("-- Function {} executed and stored in variable '{}'", function_name, var_name);
-            println!("   Execution time: {:.3}ms", execution_time);
+
         } else {
             println!("!! Function {} not found", function_name);
         }
-        
+
         Ok(())
     }
     
     fn execute_function_body(&mut self, function_name: &str) -> Result<VariableValue> {
-        println!(">> Executing function body: {}", function_name);
-        
+
         if let Some(function_result) = self.cache.function_results.get(function_name) {
             let body = match &function_result.result {
                 VariableValue::String(body_str) => body_str.clone(),
@@ -621,25 +709,24 @@ impl QuantumTranspiler {
     }
     
     fn execute_variable_assignment(&mut self, var_name: &str, expression: &str, _class_name: &str) -> Result<()> {
-        println!(">> Variable assignment: {} <> {}", var_name, expression);
-        
+        // Silent execution (removed verbose logging)
+
         if expression.starts_with("calc(") && expression.ends_with(")") {
-            
-            let inner = &expression[5..expression.len()-1]; 
+
+            let inner = &expression[5..expression.len()-1];
             let params: Vec<&str> = inner.split(',').map(|s| s.trim()).collect();
-            
+
             if params.len() >= 2 {
                 let mut resolved_params = Vec::new();
-                
+
                 for param in &params {
                     if let Ok(num) = param.parse::<f64>() {
-                        
+
                         resolved_params.push(num);
                     } else if let Some(variable) = self.variable_manager.get_variable(param) {
-                        
+
                         if let VariableValue::Number(n) = variable.value {
                             resolved_params.push(n);
-                            println!("-- Resolved variable '{}' = {}", param, n);
                         } else {
                             println!("!! Variable '{}' is not numeric", param);
                             return Ok(());
@@ -649,64 +736,60 @@ impl QuantumTranspiler {
                         return Ok(());
                     }
                 }
-                
+
                 let result = if resolved_params.len() == 2 {
-                    resolved_params[0] + resolved_params[1] 
+                    resolved_params[0] + resolved_params[1]
                 } else if resolved_params.len() == 3 {
-                    resolved_params[0] + resolved_params[1] + resolved_params[2] 
+                    resolved_params[0] + resolved_params[1] + resolved_params[2]
                 } else {
-                    resolved_params.iter().sum() 
+                    resolved_params.iter().sum()
                 };
-                
+
                 self.variable_manager.store_variable(
                     var_name,
                     VariableValue::Number(result),
                     Some(format!("calc({})", inner)),
                 )?;
-                
-                println!("-- Calculated and stored: {} = {} (from calc({}))", var_name, result, inner);
+
             } else {
                 println!("!! calc() requires at least 2 parameters");
             }
         } else if expression.starts_with("randomChoice(") {
-            
+
             let choice_regex = Regex::new(r"randomChoice\s*\(\s*\[\s*([^\]]*)\s*\]\s*\)")?;
             if let Some(captures) = choice_regex.captures(expression) {
                 let choices_str = &captures[1];
                 let choice_parts: Vec<&str> = choices_str.split(',').map(|s| s.trim()).collect();
-                
+
                 let mut resolved_choices = Vec::new();
-                
+
                 for choice in &choice_parts {
                     if let Ok(num) = choice.parse::<f64>() {
-                        
+
                         resolved_choices.push(VariableValue::Number(num));
                     } else if let Some(variable) = self.variable_manager.get_variable(choice) {
-                        
+
                         resolved_choices.push(variable.value.clone());
-                        println!("-- Resolved choice variable '{}' = {:?}", choice, variable.value);
                     } else {
-                        
+
                         resolved_choices.push(VariableValue::String(choice.trim_matches('"').to_string()));
                     }
                 }
-                
+
                 if !resolved_choices.is_empty() {
                     use rand::Rng;
                     let mut rng = rand::thread_rng();
                     let chosen = &resolved_choices[rng.gen_range(0..resolved_choices.len())];
-                    
+
                     self.variable_manager.store_variable(
                         var_name,
                         chosen.clone(),
                         Some(format!("randomChoice({})", choices_str)),
                     )?;
-                    
-                    println!("-- Random choice stored: {} = {:?}", var_name, chosen);
                 }
             }
         } else {
-            
+
             let value = if let Ok(num) = expression.parse::<f64>() {
                 VariableValue::Number(num)
             } else if expression == "true" || expression == "false" {
@@ -714,9 +797,8 @@ impl QuantumTranspiler {
             } else {
                 VariableValue::String(expression.trim_matches('"').to_string())
             };
-            
+
             self.variable_manager.store_variable(var_name, value, None)?;
-            println!("-- Direct assignment: {} = {}", var_name, expression);
         }
         
         Ok(())
@@ -869,13 +951,81 @@ impl QuantumTranspiler {
     /// Parses and executes multiple statements that may be separated by
     /// newlines or spaces
     fn execute_body_block(&mut self, body: &str, class_name: &str) -> Result<()> {
-        println!("   >> Executing body block");
+        // Silently execute body block (removed verbose logging)
 
         // Split by newlines first to handle multi-line bodies
         let lines: Vec<&str> = body.lines()
             .map(|line| line.trim())
             .filter(|line| !line.is_empty())
             .collect();
+
+        // Handle multi-line statements (loops, selections)
+        let mut i = 0;
+        while i < lines.len() {
+            let line = lines[i].trim();
+
+            // Skip empty lines
+            if line.is_empty() {
+                i += 1;
+                continue;
+            }
+
+            // Check if this is the start of a loop statement
+            if line.starts_with("loop") && line.contains("<>") {
+                let mut full_statement = String::new();
+                let mut brace_count = 0;
+                let mut in_loop = false;
+
+                while i < lines.len() {
+                    let current_line = lines[i].trim();
+
+                    if current_line.is_empty() {
+                        i += 1;
+                        continue;
+                    }
+
+                    brace_count += current_line.chars().filter(|&c| c == '{').count() as i32;
+                    brace_count -= current_line.chars().filter(|&c| c == '}').count() as i32;
+
+                    if full_statement.is_empty() {
+                        full_statement.push_str(current_line);
+                    } else {
+                        full_statement.push('\n');
+                        full_statement.push_str(current_line);
+                    }
+
+                    if brace_count > 0 {
+                        in_loop = true;
+                    }
+
+                    i += 1;
+
+                    if in_loop && brace_count == 0 {
+                        break;
+                    }
+                }
+
+                self.execute_statement(&full_statement, class_name)?;
+
+                // Check if we should exit early (continue or break)
+                if self.loop_executor.should_skip_iteration() {
+                    println!("   >> Skipping rest of iteration (continue)");
+                    return Ok(());
+                }
+                continue;
+            }
+
+            // Regular single-line statement
+            self.execute_statement(line, class_name)?;
+
+            // Check if we should exit early (continue or break)
+            if self.loop_executor.should_skip_iteration() {
+                println!("   >> Skipping rest of iteration (continue)");
+                return Ok(());
+            }
+
+            i += 1;
+        }
 
         if lines.is_empty() {
             // Try splitting by spaces if no newlines
@@ -917,11 +1067,196 @@ impl QuantumTranspiler {
             if !current_statement.is_empty() {
                 self.execute_statement(&current_statement, class_name)?;
             }
-        } else {
-            // Execute each line as a statement
-            for line in lines {
-                self.execute_statement(line, class_name)?;
+        }
+
+        Ok(())
+    }
+
+    /// Execute a count-based loop
+    fn execute_count_loop(
+        &mut self,
+        count_expr: &str,
+        body: &str,
+        class_name: &str
+    ) -> Result<()> {
+
+        // Resolve count expression (could be literal or variable)
+        let count = if let Ok(num) = count_expr.trim().parse::<u32>() {
+            // Direct number
+            num
+        } else if let Some(var) = self.variable_manager.get_variable(count_expr.trim()) {
+            // Variable reference
+            match &var.value {
+                VariableValue::Number(n) => {
+                    if *n >= 0.0 && n.fract() == 0.0 {
+                        println!("-- Resolved count variable '{}' = {}", count_expr, n);
+                        *n as u32
+                    } else {
+                        println!("!! Count must be a non-negative integer, got {}", n);
+                        return Ok(());
+                    }
+                }
+                _ => {
+                    println!("!! Count variable '{}' is not numeric", count_expr);
+                    return Ok(());
+                }
             }
+        } else {
+            // Try evaluating as expression using math_engine
+            let variables = self.variable_manager.get_all_variables();
+            let mut var_map = HashMap::new();
+            for (name, stored_var) in variables {
+                var_map.insert(name, stored_var.value);
+            }
+
+            match self.math_engine.solve_expression(count_expr, &var_map) {
+                Ok(result) if result >= 0.0 && result.fract() == 0.0 => {
+                    println!("-- Evaluated count expression '{}' = {}", count_expr, result);
+                    result as u32
+                }
+                Ok(result) => {
+                    println!("!! Count expression result must be non-negative integer, got {}", result);
+                    return Ok(());
+                }
+                Err(e) => {
+                    println!("!! Could not resolve count expression '{}': {}", count_expr, e);
+                    return Ok(());
+                }
+            }
+        };
+
+        // Execute the loop manually to avoid borrow checker issues
+        self.loop_executor.loop_depth += 1;
+
+        for i in 0..count {
+            self.loop_executor.should_continue = false;
+
+            // Execute body
+            self.execute_body_block(body, class_name)?;
+
+            // Check for break
+            if self.loop_executor.should_break {
+                self.loop_executor.should_break = false;
+                break;
+            }
+        }
+
+        self.loop_executor.loop_depth -= 1;
+        Ok(())
+    }
+
+    /// Execute a range-based loop with iterator variable
+    fn execute_range_loop(
+        &mut self,
+        start_expr: &str,
+        end_expr: &str,
+        loop_var_name: &str,
+        body: &str,
+        class_name: &str
+    ) -> Result<()> {
+
+        // Helper to resolve expression to integer
+        let resolve_to_int = |transpiler: &mut Self, expr: &str| -> Result<i32> {
+            if let Ok(num) = expr.trim().parse::<i32>() {
+                Ok(num)
+            } else if let Some(var) = transpiler.variable_manager.get_variable(expr.trim()) {
+                match &var.value {
+                    VariableValue::Number(n) => Ok(*n as i32),
+                    _ => Err(anyhow::anyhow!("Variable '{}' is not numeric", expr))
+                }
+            } else {
+                let variables = transpiler.variable_manager.get_all_variables();
+                let mut var_map = HashMap::new();
+                for (name, stored_var) in variables {
+                    var_map.insert(name, stored_var.value);
+                }
+
+                match transpiler.math_engine.solve_expression(expr, &var_map) {
+                    Ok(result) => Ok(result as i32),
+                    Err(e) => Err(anyhow::anyhow!("Could not evaluate '{}': {}", expr, e))
+                }
+            }
+        };
+
+        // Resolve start and end
+        let start = resolve_to_int(self, start_expr)?;
+        let end = resolve_to_int(self, end_expr)?;
+
+        // Execute the loop manually to avoid borrow checker issues
+        self.loop_executor.loop_depth += 1;
+
+        for i in start..end {
+            self.loop_executor.should_continue = false;
+
+            // Store loop variable before executing body
+            self.variable_manager.store_variable(
+                loop_var_name,
+                VariableValue::Number(i as f64),
+                Some(format!("loop iterator")),
+            )?;
+
+            // Execute body
+            self.execute_body_block(body, class_name)?;
+
+            // Check for break
+            if self.loop_executor.should_break {
+                self.loop_executor.should_break = false;
+                break;
+            }
+        }
+
+        self.loop_executor.loop_depth -= 1;
+        Ok(())
+    }
+
+    /// Execute a while loop with condition
+    fn execute_while_loop(
+        &mut self,
+        condition: &str,
+        body: &str,
+        class_name: &str
+    ) -> Result<()> {
+        // Safety limit to prevent infinite loops
+        const MAX_ITERATIONS: u32 = 10000;
+
+        // Clone strings for closures
+        let condition_str = condition.to_string();
+        let body_str = body.to_string();
+        let class_name_str = class_name.to_string();
+
+        // We need to handle the borrow checker carefully here
+        // Store whether we should continue in a variable outside the closures
+        let mut should_continue = true;
+        let mut iteration_count = 0;
+
+        while should_continue && iteration_count < MAX_ITERATIONS {
+            // Check condition
+            let variables = self.variable_manager.get_all_variables();
+            let condition_result = self.condition_evaluator.evaluate(&condition_str, &variables)?;
+
+            if !condition_result {
+                should_continue = false;
+                break;
+            }
+
+            // Execute body
+            if !self.loop_executor.should_skip_iteration() {
+                self.execute_body_block(&body_str, &class_name_str)?;
+            }
+
+            // Check for break
+            if self.loop_executor.should_break {
+                self.loop_executor.should_break = false;
+                break;
+            }
+
+            // Reset continue flag
+            self.loop_executor.should_continue = false;
+            iteration_count += 1;
+        }
+
+        if iteration_count >= MAX_ITERATIONS {
+            println!("!! While loop hit max iterations ({})", MAX_ITERATIONS);
         }
 
         Ok(())

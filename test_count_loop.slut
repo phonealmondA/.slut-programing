@@ -1,0 +1,43 @@
+* <main> CountLoopTest {
+    ^ observe_execution {
+        speak("=== Testing Count Loops ===")
+
+        # Test 1: Simple count with literal
+        speak("Test 1: Simple count")
+        loop <> count(3) {
+            speak("Iteration!")
+        }
+
+        # Test 2: Count with variable
+        speak("Test 2: Count with variable")
+        iterations <> 5
+        loop <> count(iterations) {
+            speak("Processing...")
+        }
+
+        # Test 3: Nested statements in loop
+        speak("Test 3: Nested statements")
+        loop <> count(3) {
+            x <> randomChoice([1, 2, 3, 4, 5])
+            speak("Random number: ~x~")
+        }
+
+        # Test 4: Variable that changes in loop
+        speak("Test 4: Accumulator pattern")
+        sum <> 0
+        loop <> count(5) {
+            sum <> calc(sum, 1)
+            speak("Sum is now: ~sum~")
+        }
+        speak("Final sum: ~sum~")
+
+        # Test 5: Math solving in loop
+        speak("Test 5: Math in loop")
+        loop <> count(3) {
+            result([12]) <> randomChoice([3, 4])
+            speak("Found: ~result~")
+        }
+
+        speak("=== All count loop tests complete ===")
+    }
+}

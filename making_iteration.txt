@@ -1,0 +1,1386 @@
+================================================================================
+ITERATION (LOOPS) IMPLEMENTATION GUIDE
+For Quantum Consciousness Programming Language (.slut)
+================================================================================
+
+FEATURE OVERVIEW:
+Add proper iteration/looping constructs to the language, allowing programs to
+repeat code blocks multiple times with different values or conditions.
+
+This guide builds upon the completed Selection (if/elif/else) implementation
+and follows similar architectural patterns.
+
+================================================================================
+AVAILABLE CRATES IN PROJECT
+================================================================================
+
+From Cargo.toml, we have these crates available:
+
+Core Language Features:
+- regex = "1.0"              - Pattern matching for parsing
+- evalexpr = "11.3"          - Expression evaluation (used in conditions)
+- anyhow = "1.0"             - Error handling
+
+Data & Serialization:
+- serde = "1.0"              - Serialization framework
+- serde_json = "1.0"         - JSON serialization
+
+Performance:
+- rayon = "1.8"              - Parallel computation (used in math_engine)
+
+CLI & User Interface:
+- clap = "4.4"               - Command-line argument parsing
+- dialoguer = "0.11"         - Interactive prompts
+- indicatif = "0.17"         - Progress bars and spinners
+- colored = "2.1"            - Terminal colors
+
+Utilities:
+- rand = "0.8"               - Random number generation
+- tracing = "0.1"            - Structured logging
+- tracing-subscriber = "0.3" - Log formatting
+
+KEY INSIGHT: We already have everything we need! Just like selection used
+evalexpr for conditions, iteration will use evalexpr for loop conditions.
+
+================================================================================
+SYNTAX SPECIFICATION
+================================================================================
+
+PHASE 1: Count Loop (Simplest - Implement First)
+-------------------------------------------------
+
+Structure:
+```
+loop <> count(n) {
+    [statements]
+}
+```
+
+Rules:
+- Starts with "loop <> count("
+- Takes a single numeric parameter (how many times to loop)
+- Parameter can be literal number or variable
+- Body contains statements to repeat
+- No loop variable exposed (just repeats n times)
+
+Examples:
+```
+# Simple count
+loop <> count(5) {
+    speak("Iteration!")
+}
+
+# With variable
+iterations <> 10
+loop <> count(iterations) {
+    speak("Processing...")
+}
+
+# Nested statements
+loop <> count(3) {
+    x <> randomChoice([1, 2, 3])
+    speak("Random: ~x~")
+}
+```
+
+PHASE 2: Range Loop (With Iterator Variable)
+---------------------------------------------
+
+Structure:
+```
+loop <> range(start, end) as varname {
+    [statements]
+}
+```
+
+Rules:
+- Starts with "loop <> range("
+- Takes two parameters: start (inclusive) and end (exclusive)
+- Must include "as varname" to bind loop variable
+- Loop variable available inside body
+- Parameters can be literals or variables
+
+Examples:
+```
+# Simple range
+loop <> range(0, 5) as i {
+    speak("Number: ~i~")
+}
+
+# With variables
+start <> 1
+end <> 10
+loop <> range(start, end) as num {
+    result([num]) <> randomChoice([2, 3])
+    woof result
+}
+
+# Nested loops
+loop <> range(1, 4) as i {
+    loop <> range(1, 4) as j {
+        product <> calc(i, j)
+        speak("~i~ * ~j~ = ~product~")
+    }
+}
+```
+
+PHASE 3: While Loop (Conditional Iteration)
+--------------------------------------------
+
+Structure:
+```
+loop <> while (condition) {
+    [statements]
+}
+```
+
+Rules:
+- Starts with "loop <> while ("
+- Takes a boolean condition (same as if statements)
+- Evaluates condition before each iteration
+- Continues while condition is true
+- MUST have way to make condition false (or infinite loop!)
+
+Examples:
+```
+# Simple while loop
+count <> 0
+loop <> while (count < 5) {
+    speak("Count: ~count~")
+    count <> calc(count, 1)
+}
+
+# With complex condition
+x <> 1
+loop <> while (x < 100 && x != 50) {
+    speak("X is ~x~")
+    x <> calc(x, x)  # x = x * 2
+}
+
+# Finding target
+found <> false
+attempts <> 0
+loop <> while (found == false && attempts < 10) {
+    result([24]) <> randomChoice([3, 4, 2])
+    attempts <> calc(attempts, 1)
+    if <> (result == 24) <else> (true) {
+        found <> true
+        speak("Found it!")
+    <>
+        speak("Try again...")
+    }
+}
+```
+
+PHASE 4: Loop Control (Break and Continue)
+-------------------------------------------
+
+Structure:
+```
+loop <> ... {
+    break         # Exit loop immediately
+    continue      # Skip to next iteration
+}
+```
+
+Rules:
+- "break" exits the innermost loop
+- "continue" skips to next iteration of innermost loop
+- Only valid inside loop bodies
+- Error if used outside loops
+
+Examples:
+```
+# Break example
+loop <> range(0, 100) as i {
+    if <> (i == 10) <else> (true) {
+        break
+    <>
+        speak("Number: ~i~")
+    }
+}
+
+# Continue example
+loop <> range(1, 10) as i {
+    if <> (i % 2 == 0) <else> (true) {
+        continue
+    <>
+        speak("Odd number: ~i~")
+    }
+}
+
+# Combined with while
+count <> 0
+loop <> while (count < 20) {
+    count <> calc(count, 1)
+    
+    if <> (count % 2 == 0) <else> (true) {
+        continue
+    <>
+        speak("Processing ~count~")
+    }
+    
+    if <> (count == 15) <else> (true) {
+        speak("Reached limit!")
+        break
+    <>
+        speak("Continuing...")
+    }
+}
+```
+
+================================================================================
+IMPLEMENTATION STEPS - PHASE 1: COUNT LOOP
+================================================================================
+
+STEP 1: Create Loop Executor Module
+------------------------------------
+Location: Create new file src/loop_executor.rs
+
+This module will handle loop execution logic, similar to condition_evaluator.rs
+
+```rust
+use anyhow::Result;
+use std::collections::HashMap;
+use crate::{StoredVariable, VariableValue};
+
+pub struct LoopExecutor {
+    // Track loop depth for nested loops
+    loop_depth: usize,
+    // Track if we should break out of loop
+    should_break: bool,
+    // Track if we should continue to next iteration
+    should_continue: bool,
+}
+
+impl LoopExecutor {
+    pub fn new() -> Self {
+        Self {
+            loop_depth: 0,
+            should_break: false,
+            should_continue: false,
+        }
+    }
+
+    /// Execute a count-based loop
+    pub fn execute_count_loop<F>(
+        &mut self,
+        count: u32,
+        mut body_executor: F
+    ) -> Result<()>
+    where
+        F: FnMut(Option<u32>) -> Result<()>
+    {
+        println!("-- Executing count loop: {} iterations", count);
+        self.loop_depth += 1;
+
+        for i in 0..count {
+            // Reset continue flag for each iteration
+            self.should_continue = false;
+
+            // Execute body (no loop variable in Phase 1)
+            body_executor(None)?;
+
+            // Check for break
+            if self.should_break {
+                println!("   Loop broken at iteration {}", i);
+                self.should_break = false;
+                break;
+            }
+
+            // Continue already handled by flag reset
+        }
+
+        self.loop_depth -= 1;
+        println!("-- Count loop complete");
+        Ok(())
+    }
+
+    /// Execute a range-based loop with iterator variable
+    pub fn execute_range_loop<F>(
+        &mut self,
+        start: i32,
+        end: i32,
+        mut body_executor: F
+    ) -> Result<()>
+    where
+        F: FnMut(Option<i32>) -> Result<()>
+    {
+        println!("-- Executing range loop: {} to {}", start, end);
+        self.loop_depth += 1;
+
+        for i in start..end {
+            self.should_continue = false;
+
+            // Execute body with loop variable
+            body_executor(Some(i))?;
+
+            if self.should_break {
+                println!("   Loop broken at value {}", i);
+                self.should_break = false;
+                break;
+            }
+        }
+
+        self.loop_depth -= 1;
+        println!("-- Range loop complete");
+        Ok(())
+    }
+
+    /// Execute a while loop with condition
+    pub fn execute_while_loop<F, C>(
+        &mut self,
+        mut condition_checker: C,
+        mut body_executor: F,
+        max_iterations: u32
+    ) -> Result<()>
+    where
+        F: FnMut() -> Result<()>,
+        C: FnMut() -> Result<bool>
+    {
+        println!("-- Executing while loop (max iterations: {})", max_iterations);
+        self.loop_depth += 1;
+
+        let mut iteration = 0;
+        while condition_checker()? {
+            self.should_continue = false;
+
+            body_executor()?;
+
+            if self.should_break {
+                println!("   While loop broken at iteration {}", iteration);
+                self.should_break = false;
+                break;
+            }
+
+            iteration += 1;
+            if iteration >= max_iterations {
+                println!("!! While loop hit max iterations ({})", max_iterations);
+                break;
+            }
+        }
+
+        self.loop_depth -= 1;
+        println!("-- While loop complete after {} iterations", iteration);
+        Ok(())
+    }
+
+    /// Signal that we should break out of the current loop
+    pub fn signal_break(&mut self) {
+        if self.loop_depth > 0 {
+            println!("   >> Break signaled");
+            self.should_break = true;
+        } else {
+            println!("!! Break called outside of loop");
+        }
+    }
+
+    /// Signal that we should continue to next iteration
+    pub fn signal_continue(&mut self) {
+        if self.loop_depth > 0 {
+            println!("   >> Continue signaled");
+            self.should_continue = true;
+        } else {
+            println!("!! Continue called outside of loop");
+        }
+    }
+
+    /// Check if we should skip the rest of this iteration
+    pub fn should_skip_iteration(&self) -> bool {
+        self.should_continue
+    }
+
+    /// Check if we're currently inside a loop
+    pub fn is_in_loop(&self) -> bool {
+        self.loop_depth > 0
+    }
+}
+```
+
+STEP 2: Add Loop Executor to Main Transpiler
+---------------------------------------------
+Location: src/main.rs
+
+Add to imports:
+```rust
+mod loop_executor;
+use loop_executor::LoopExecutor;
+```
+
+Add to QuantumTranspiler struct:
+```rust
+struct QuantumTranspiler {
+    cache: QuantumCache,
+    execution_count: u32,
+    function_builder: FunctionBuilder,
+    function_executor: FunctionExecutor,
+    math_engine: MathEngine,
+    variable_manager: VariableManager,
+    condition_evaluator: ConditionEvaluator,
+    loop_executor: LoopExecutor,  // NEW
+    current_class_name: String,
+}
+```
+
+Initialize in new():
+```rust
+let loop_executor = LoopExecutor::new();
+```
+
+And add to return:
+```rust
+Ok(Self {
+    // ... existing fields ...
+    loop_executor,
+    current_class_name: String::new(),
+})
+```
+
+STEP 3: Add Count Loop Regex Pattern
+-------------------------------------
+Location: src/main.rs, in execute_statement() method
+
+Add this EARLY in execute_statement(), right after selection check:
+
+```rust
+// Check for count loop - PHASE 1
+let count_loop_regex = Regex::new(
+    r"loop\s*<>\s*count\s*\(\s*([^)]+)\s*\)\s*\{([\s\S]*?)\}"
+)?;
+
+if let Some(captures) = count_loop_regex.captures(statement) {
+    let count_expr = &captures[1];
+    let body = &captures[2];
+
+    return self.execute_count_loop(count_expr, body, class_name);
+}
+```
+
+STEP 4: Implement Count Loop Execution
+---------------------------------------
+Location: src/main.rs, add new method to QuantumTranspiler
+
+```rust
+fn execute_count_loop(
+    &mut self,
+    count_expr: &str,
+    body: &str,
+    class_name: &str
+) -> Result<()> {
+    println!(">> Executing count loop");
+
+    // Resolve count expression (could be literal or variable)
+    let count = if let Ok(num) = count_expr.trim().parse::<u32>() {
+        // Direct number
+        num
+    } else if let Some(var) = self.variable_manager.get_variable(count_expr.trim()) {
+        // Variable reference
+        match &var.value {
+            VariableValue::Number(n) => {
+                if *n >= 0.0 && n.fract() == 0.0 {
+                    println!("-- Resolved count variable '{}' = {}", count_expr, n);
+                    *n as u32
+                } else {
+                    println!("!! Count must be a non-negative integer, got {}", n);
+                    return Ok(());
+                }
+            }
+            _ => {
+                println!("!! Count variable '{}' is not numeric", count_expr);
+                return Ok(());
+            }
+        }
+    } else {
+        // Try evaluating as expression using math_engine
+        let variables = self.variable_manager.get_all_variables();
+        let mut var_map = HashMap::new();
+        for (name, stored_var) in variables {
+            var_map.insert(name, stored_var.value);
+        }
+        
+        match self.math_engine.solve_expression(count_expr, &var_map) {
+            Ok(result) if result >= 0.0 && result.fract() == 0.0 => {
+                println!("-- Evaluated count expression '{}' = {}", count_expr, result);
+                result as u32
+            }
+            Ok(result) => {
+                println!("!! Count expression result must be non-negative integer, got {}", result);
+                return Ok(());
+            }
+            Err(e) => {
+                println!("!! Could not resolve count expression '{}': {}", count_expr, e);
+                return Ok(());
+            }
+        }
+    };
+
+    // Execute the loop
+    self.loop_executor.execute_count_loop(count, |_loop_var| {
+        // Check if we should skip this iteration
+        if self.loop_executor.should_skip_iteration() {
+            return Ok(());
+        }
+
+        // Execute the body block
+        self.execute_body_block(body, class_name)?;
+
+        Ok(())
+    })?;
+
+    Ok(())
+}
+```
+
+STEP 5: Test Phase 1 Implementation
+------------------------------------
+Create test file: test_count_loop.slut
+
+```slut
+* <main> CountLoopTest {
+    ^ observe_execution {
+        speak("=== Testing Count Loops ===")
+
+        # Test 1: Simple count with literal
+        speak("Test 1: Simple count")
+        loop <> count(3) {
+            speak("Iteration!")
+        }
+
+        # Test 2: Count with variable
+        speak("Test 2: Count with variable")
+        iterations <> 5
+        loop <> count(iterations) {
+            speak("Processing...")
+        }
+
+        # Test 3: Nested statements in loop
+        speak("Test 3: Nested statements")
+        loop <> count(3) {
+            x <> randomChoice([1, 2, 3, 4, 5])
+            speak("Random number: ~x~")
+        }
+
+        # Test 4: Variable that changes in loop
+        speak("Test 4: Accumulator pattern")
+        sum <> 0
+        loop <> count(5) {
+            sum <> calc(sum, 1)
+            speak("Sum is now: ~sum~")
+        }
+        speak("Final sum: ~sum~")
+
+        # Test 5: Math solving in loop
+        speak("Test 5: Math in loop")
+        loop <> count(3) {
+            result([12]) <> randomChoice([3, 4])
+            speak("Found: ~result~")
+        }
+
+        speak("=== All count loop tests complete ===")
+    }
+}
+```
+
+Expected output:
+```
+>> Executing count loop
+-- Resolved count variable 'iterations' = 5
+-- Executing count loop: 5 iterations
+Processing...
+Processing...
+Processing...
+Processing...
+Processing...
+-- Count loop complete
+```
+
+================================================================================
+IMPLEMENTATION STEPS - PHASE 2: RANGE LOOP
+================================================================================
+
+STEP 6: Add Range Loop Regex Pattern
+-------------------------------------
+Location: src/main.rs, in execute_statement() method
+
+Add after count loop check:
+
+```rust
+// Check for range loop - PHASE 2
+let range_loop_regex = Regex::new(
+    r"loop\s*<>\s*range\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)\s*as\s+(\w+)\s*\{([\s\S]*?)\}"
+)?;
+
+if let Some(captures) = range_loop_regex.captures(statement) {
+    let start_expr = &captures[1];
+    let end_expr = &captures[2];
+    let loop_var = &captures[3];
+    let body = &captures[4];
+
+    return self.execute_range_loop(start_expr, end_expr, loop_var, body, class_name);
+}
+```
+
+STEP 7: Implement Range Loop Execution
+---------------------------------------
+Location: src/main.rs, add new method to QuantumTranspiler
+
+```rust
+fn execute_range_loop(
+    &mut self,
+    start_expr: &str,
+    end_expr: &str,
+    loop_var_name: &str,
+    body: &str,
+    class_name: &str
+) -> Result<()> {
+    println!(">> Executing range loop: {} to {}, variable '{}'", 
+             start_expr, end_expr, loop_var_name);
+
+    // Helper to resolve expression to integer
+    let resolve_to_int = |expr: &str| -> Result<i32> {
+        if let Ok(num) = expr.trim().parse::<i32>() {
+            Ok(num)
+        } else if let Some(var) = self.variable_manager.get_variable(expr.trim()) {
+            match &var.value {
+                VariableValue::Number(n) => Ok(*n as i32),
+                _ => Err(anyhow::anyhow!("Variable '{}' is not numeric", expr))
+            }
+        } else {
+            let variables = self.variable_manager.get_all_variables();
+            let mut var_map = HashMap::new();
+            for (name, stored_var) in variables {
+                var_map.insert(name, stored_var.value);
+            }
+            
+            match self.math_engine.solve_expression(expr, &var_map) {
+                Ok(result) => Ok(result as i32),
+                Err(e) => Err(anyhow::anyhow!("Could not evaluate '{}': {}", expr, e))
+            }
+        }
+    };
+
+    // Resolve start and end
+    let start = resolve_to_int(start_expr)?;
+    let end = resolve_to_int(end_expr)?;
+
+    println!("-- Range resolved: {} to {}", start, end);
+
+    // Execute the loop
+    self.loop_executor.execute_range_loop(start, end, |loop_value| {
+        if self.loop_executor.should_skip_iteration() {
+            return Ok(());
+        }
+
+        // Store loop variable before executing body
+        if let Some(value) = loop_value {
+            self.variable_manager.store_variable(
+                loop_var_name,
+                VariableValue::Number(value as f64),
+                Some(format!("loop iterator")),
+            )?;
+        }
+
+        // Execute body
+        self.execute_body_block(body, class_name)?;
+
+        Ok(())
+    })?;
+
+    // Clean up loop variable after loop (optional, but clean)
+    // Note: You might want to keep it for debugging
+    // self.variable_manager.remove_variable(loop_var_name);
+
+    Ok(())
+}
+```
+
+STEP 8: Test Phase 2 Implementation
+------------------------------------
+Create test file: test_range_loop.slut
+
+```slut
+* <main> RangeLoopTest {
+    ^ observe_execution {
+        speak("=== Testing Range Loops ===")
+
+        # Test 1: Simple range
+        speak("Test 1: Simple range")
+        loop <> range(0, 5) as i {
+            speak("Number: ~i~")
+        }
+
+        # Test 2: Range with variables
+        speak("Test 2: Range with variables")
+        start <> 10
+        end <> 15
+        loop <> range(start, end) as num {
+            speak("Value: ~num~")
+        }
+
+        # Test 3: Using loop variable in calculations
+        speak("Test 3: Calculations with loop variable")
+        loop <> range(1, 6) as n {
+            square <> calc(n, n)
+            speak("~n~ squared is ~square~")
+        }
+
+        # Test 4: Math solving with loop variable
+        speak("Test 4: Math solving in loop")
+        loop <> range(1, 4) as target {
+            result([target]) <> randomChoice([1, 2])
+            speak("Target ~target~ = ~result~")
+        }
+
+        # Test 5: Nested range loops
+        speak("Test 5: Multiplication table")
+        loop <> range(1, 4) as i {
+            loop <> range(1, 4) as j {
+                product <> calc(i, j)
+                speak("~i~ * ~j~ = ~product~")
+            }
+        }
+
+        speak("=== All range loop tests complete ===")
+    }
+}
+```
+
+================================================================================
+IMPLEMENTATION STEPS - PHASE 3: WHILE LOOP
+================================================================================
+
+STEP 9: Add While Loop Regex Pattern
+-------------------------------------
+Location: src/main.rs, in execute_statement() method
+
+Add after range loop check:
+
+```rust
+// Check for while loop - PHASE 3
+let while_loop_regex = Regex::new(
+    r"loop\s*<>\s*while\s*\(\s*([^)]+)\s*\)\s*\{([\s\S]*?)\}"
+)?;
+
+if let Some(captures) = while_loop_regex.captures(statement) {
+    let condition = &captures[1];
+    let body = &captures[2];
+
+    return self.execute_while_loop(condition, body, class_name);
+}
+```
+
+STEP 10: Implement While Loop Execution
+----------------------------------------
+Location: src/main.rs, add new method to QuantumTranspiler
+
+```rust
+fn execute_while_loop(
+    &mut self,
+    condition: &str,
+    body: &str,
+    class_name: &str
+) -> Result<()> {
+    println!(">> Executing while loop with condition: {}", condition);
+
+    // Safety limit to prevent infinite loops
+    const MAX_ITERATIONS: u32 = 10000;
+
+    // Closure to check condition
+    let condition_str = condition.to_string();
+    let body_str = body.to_string();
+    let class_name_str = class_name.to_string();
+
+    self.loop_executor.execute_while_loop(
+        || {
+            // Evaluate condition using condition_evaluator
+            let variables = self.variable_manager.get_all_variables();
+            self.condition_evaluator.evaluate(&condition_str, &variables)
+        },
+        || {
+            if self.loop_executor.should_skip_iteration() {
+                return Ok(());
+            }
+
+            // Execute body
+            self.execute_body_block(&body_str, &class_name_str)?;
+
+            Ok(())
+        },
+        MAX_ITERATIONS
+    )?;
+
+    Ok(())
+}
+```
+
+Note: The while loop implementation is trickier because we need to:
+1. Check condition before each iteration
+2. Re-evaluate variables each time
+3. Protect against infinite loops
+4. Handle the borrow checker (hence the string clones)
+
+STEP 11: Test Phase 3 Implementation
+-------------------------------------
+Create test file: test_while_loop.slut
+
+```slut
+* <main> WhileLoopTest {
+    ^ observe_execution {
+        speak("=== Testing While Loops ===")
+
+        # Test 1: Simple counter
+        speak("Test 1: Simple counter")
+        count <> 0
+        loop <> while (count < 5) {
+            speak("Count: ~count~")
+            count <> calc(count, 1)
+        }
+
+        # Test 2: Complex condition
+        speak("Test 2: Complex condition")
+        x <> 1
+        loop <> while (x < 100 && x != 50) {
+            speak("X is ~x~")
+            x <> calc(x, x)
+        }
+
+        # Test 3: Search pattern
+        speak("Test 3: Search for target")
+        found <> false
+        attempts <> 0
+        loop <> while (found == false && attempts < 10) {
+            num <> randomChoice([20, 21, 22, 23, 24, 25])
+            attempts <> calc(attempts, 1)
+            speak("Try ~attempts~: Got ~num~")
+            
+            if <> (num == 24) <else> (true) {
+                found <> true
+                speak("Found 24!")
+            <>
+                speak("Keep searching...")
+            }
+        }
+
+        # Test 4: Countdown
+        speak("Test 4: Countdown")
+        countdown <> 10
+        loop <> while (countdown > 0) {
+            speak("~countdown~...")
+            countdown <> calc(countdown, -1)
+        }
+        speak("Liftoff!")
+
+        speak("=== All while loop tests complete ===")
+    }
+}
+```
+
+================================================================================
+IMPLEMENTATION STEPS - PHASE 4: BREAK AND CONTINUE
+================================================================================
+
+STEP 12: Add Break and Continue Detection
+------------------------------------------
+Location: src/main.rs, in execute_statement() method
+
+Add BEFORE other statement checks (since these are keywords):
+
+```rust
+// Check for break statement
+if statement.trim() == "break" {
+    self.loop_executor.signal_break();
+    return Ok(());
+}
+
+// Check for continue statement
+if statement.trim() == "continue" {
+    self.loop_executor.signal_continue();
+    return Ok(());
+}
+```
+
+STEP 13: Update Body Block Execution to Handle Break/Continue
+--------------------------------------------------------------
+Location: src/main.rs, modify execute_body_block() method
+
+Add checks after each statement execution:
+
+```rust
+fn execute_body_block(&mut self, body: &str, class_name: &str) -> Result<()> {
+    println!("   >> Executing body block");
+
+    let lines: Vec<&str> = body.lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .collect();
+
+    // ... existing parsing logic ...
+
+    for line in lines {
+        self.execute_statement(line, class_name)?;
+
+        // Check if we should exit early
+        if self.loop_executor.should_skip_iteration() {
+            println!("   >> Skipping rest of iteration (continue)");
+            break;
+        }
+    }
+
+    Ok(())
+}
+```
+
+STEP 14: Test Phase 4 Implementation
+-------------------------------------
+Create test file: test_loop_control.slut
+
+```slut
+* <main> LoopControlTest {
+    ^ observe_execution {
+        speak("=== Testing Loop Control (Break/Continue) ===")
+
+        # Test 1: Break in count loop
+        speak("Test 1: Break in count loop")
+        loop <> count(10) {
+            if <> (count == 5) <else> (true) {
+                speak("Breaking at 5!")
+                break
+            <>
+                speak("Still going...")
+            }
+        }
+
+        # Test 2: Continue in range loop
+        speak("Test 2: Continue - only odd numbers")
+        loop <> range(1, 10) as i {
+            if <> (i % 2 == 0) <else> (true) {
+                continue
+            <>
+                speak("Odd: ~i~")
+            }
+        }
+
+        # Test 3: Break in while loop
+        speak("Test 3: Break when target found")
+        attempts <> 0
+        loop <> while (attempts < 100) {
+            attempts <> calc(attempts, 1)
+            num <> randomChoice([10, 11, 12, 13, 14, 15])
+            
+            if <> (num == 12) <else> (true) {
+                speak("Found 12 after ~attempts~ attempts!")
+                break
+            <>
+                speak("Attempt ~attempts~: ~num~")
+            }
+        }
+
+        # Test 4: Combined break and continue
+        speak("Test 4: Skip evens, stop at 15")
+        loop <> range(1, 20) as n {
+            if <> (n == 15) <else> (true) {
+                speak("Reached 15, stopping")
+                break
+            <>
+                speak("Continuing...")
+            }
+            
+            if <> (n % 2 == 0) <else> (true) {
+                continue
+            <>
+                speak("Processing odd: ~n~")
+            }
+        }
+
+        # Test 5: Nested loops with break
+        speak("Test 5: Nested loops - break inner only")
+        loop <> range(1, 4) as outer {
+            speak("Outer: ~outer~")
+            loop <> range(1, 6) as inner {
+                if <> (inner == 3) <else> (true) {
+                    speak("  Breaking inner at 3")
+                    break
+                <>
+                    speak("  Inner: ~inner~")
+                }
+            }
+        }
+
+        speak("=== All loop control tests complete ===")
+    }
+}
+```
+
+================================================================================
+FILES TO MODIFY
+================================================================================
+
+1. src/loop_executor.rs (NEW FILE)
+   - Create LoopExecutor struct
+   - Implement execute_count_loop()
+   - Implement execute_range_loop()
+   - Implement execute_while_loop()
+   - Implement signal_break() and signal_continue()
+   - Track loop depth and control flags
+
+2. src/main.rs
+   - Import loop_executor module
+   - Add LoopExecutor to QuantumTranspiler struct
+   - Add count loop regex + execute_count_loop() method
+   - Add range loop regex + execute_range_loop() method
+   - Add while loop regex + execute_while_loop() method
+   - Add break/continue detection in execute_statement()
+   - Update execute_body_block() to handle break/continue
+
+3. Cargo.toml
+   - No changes needed! All crates already available
+
+4. Slut_101.txt
+   - Add Section 3.4: Iteration (Loops)
+   - Document count, range, and while loops
+   - Document break and continue
+   - Add comprehensive examples
+
+5. Test Files (NEW)
+   - test_count_loop.slut
+   - test_range_loop.slut
+   - test_while_loop.slut
+   - test_loop_control.slut
+
+================================================================================
+IMPLEMENTATION CHECKLIST
+================================================================================
+
+PHASE 1 - Count Loop:
+[ ] Create src/loop_executor.rs with LoopExecutor struct
+[ ] Add execute_count_loop() method to LoopExecutor
+[ ] Import loop_executor in main.rs
+[ ] Add LoopExecutor to QuantumTranspiler struct
+[ ] Add count loop regex pattern to execute_statement()
+[ ] Implement execute_count_loop() method in QuantumTranspiler
+[ ] Test with literal numbers: loop <> count(5)
+[ ] Test with variables: count <> 10, loop <> count(count)
+[ ] Test with statements in body
+[ ] Test with variable modifications in loop
+[ ] Create test_count_loop.slut
+
+PHASE 2 - Range Loop:
+[ ] Add execute_range_loop() method to LoopExecutor
+[ ] Add range loop regex pattern to execute_statement()
+[ ] Implement execute_range_loop() method in QuantumTranspiler
+[ ] Handle loop variable storage in variable_manager
+[ ] Test with literal range: loop <> range(0, 5) as i
+[ ] Test with variable range: loop <> range(start, end) as i
+[ ] Test using loop variable in body
+[ ] Test nested range loops
+[ ] Create test_range_loop.slut
+
+PHASE 3 - While Loop:
+[ ] Add execute_while_loop() method to LoopExecutor
+[ ] Add while loop regex pattern to execute_statement()
+[ ] Implement execute_while_loop() method in QuantumTranspiler
+[ ] Add MAX_ITERATIONS safety limit
+[ ] Test simple counter pattern
+[ ] Test complex conditions with &&, ||
+[ ] Test with variable updates in body
+[ ] Test search/find patterns
+[ ] Create test_while_loop.slut
+
+PHASE 4 - Break and Continue:
+[ ] Add signal_break() and signal_continue() to LoopExecutor
+[ ] Add should_skip_iteration() check
+[ ] Detect "break" keyword in execute_statement()
+[ ] Detect "continue" keyword in execute_statement()
+[ ] Update execute_body_block() to check for skip
+[ ] Test break in count loop
+[ ] Test break in range loop
+[ ] Test break in while loop
+[ ] Test continue in all loop types
+[ ] Test nested loops with break/continue
+[ ] Create test_loop_control.slut
+
+DOCUMENTATION:
+[ ] Update Slut_101.txt with iteration section
+[ ] Add examples for each loop type
+[ ] Document break and continue
+[ ] Add common loop patterns
+[ ] Update table of contents
+
+FINAL TESTING:
+[ ] Run all test files
+[ ] Test all loops with math solving inside
+[ ] Test loops with selection statements inside
+[ ] Test deeply nested loops
+[ ] Test edge cases (count=0, empty ranges, etc.)
+[ ] Performance test with large iteration counts
+
+================================================================================
+COMMON PATTERNS AND EXAMPLES
+================================================================================
+
+Pattern 1: Accumulator
+-----------------------
+```
+sum <> 0
+loop <> range(1, 11) as i {
+    sum <> calc(sum, i)
+}
+speak("Sum of 1-10: ~sum~")
+```
+
+Pattern 2: Iterative Math Solving
+----------------------------------
+```
+loop <> range(10, 25) as target {
+    result([target]) <> randomChoice([2, 3, 5])
+    speak("~target~ = ~result~")
+}
+```
+
+Pattern 3: Search with While
+-----------------------------
+```
+found <> false
+attempts <> 0
+loop <> while (found == false && attempts < 100) {
+    result([24]) <> randomChoice([3, 4, 6, 8])
+    attempts <> calc(attempts, 1)
+    if <> (result == 24) <else> (true) {
+        found <> true
+    <>
+        speak("Still searching...")
+    }
+}
+```
+
+Pattern 4: Nested Loop Grid
+----------------------------
+```
+loop <> range(1, 6) as row {
+    loop <> range(1, 6) as col {
+        product <> calc(row, col)
+        speak("~row~ x ~col~ = ~product~")
+    }
+}
+```
+
+Pattern 5: Filter with Continue
+--------------------------------
+```
+loop <> range(1, 20) as n {
+    if <> (n % 3 != 0) <else> (true) {
+        continue
+    <>
+        speak("Multiple of 3: ~n~")
+    }
+}
+```
+
+Pattern 6: Early Exit with Break
+---------------------------------
+```
+loop <> range(1, 100) as n {
+    square <> calc(n, n)
+    if <> (square > 50) <else> (true) {
+        speak("~n~ squared exceeds 50")
+        break
+    <>
+        speak("~n~ squared = ~square~")
+    }
+}
+```
+
+================================================================================
+EDGE CASES TO HANDLE
+================================================================================
+
+1. Zero iterations:
+   - loop <> count(0) { ... } should not execute body
+   - loop <> range(5, 5) as i { ... } should not execute body
+
+2. Negative counts:
+   - loop <> count(-5) should error or treat as 0
+
+3. Reverse ranges:
+   - loop <> range(10, 5) as i { ... } should not execute (or error)
+
+4. Infinite loops:
+   - loop <> while (true) { ... } needs MAX_ITERATIONS safety
+   - Warn user when limit hit
+
+5. Break/continue outside loops:
+   - Should give clear error message
+   - Use is_in_loop() check
+
+6. Nested loop breaks:
+   - Break only affects innermost loop
+   - Document this behavior clearly
+
+7. Loop variable scope:
+   - Loop variable should be accessible in body
+   - Consider: should it persist after loop?
+
+8. Variable modification:
+   - Variables modified in loop should persist after
+   - This is current behavior, keep it
+
+================================================================================
+PERFORMANCE CONSIDERATIONS
+================================================================================
+
+The loop executor uses closures which have some overhead. For very large
+iteration counts (>10000), you might see performance impact. However:
+
+1. The existing math_engine uses rayon for parallelization
+2. Most loops in this language will be modest (<1000 iterations)
+3. The overhead is acceptable for the flexibility gained
+
+If performance becomes an issue later, consider:
+- Compiling hot loops to native code
+- Using inline execution for simple cases
+- Adding JIT compilation (very advanced)
+
+For now, prioritize correctness and clarity over raw speed.
+
+================================================================================
+DEBUGGING TIPS
+================================================================================
+
+1. Enable verbose logging:
+   - Add println! statements in loop_executor.rs
+   - Show iteration count, loop variable values
+   - Log break/continue signals
+
+2. Test incrementally:
+   - Get count loop working first
+   - Then range loop
+   - Then while loop
+   - Finally break/continue
+
+3. Common issues:
+   - Regex not matching: Test patterns separately
+   - Infinite while loops: Check condition updates
+   - Variable not found: Check scope and storage
+   - Break not working: Verify loop_depth tracking
+
+4. Use the existing patterns:
+   - Look at condition_evaluator.rs for similar code
+   - Reuse execute_body_block() logic
+   - Follow variable storage patterns from variable_manager
+
+================================================================================
+INTEGRATION WITH EXISTING FEATURES
+================================================================================
+
+Loops work with ALL existing features:
+
+1. Selection inside loops:
+   ```
+   loop <> range(1, 10) as i {
+       if <> (i % 2 == 0) <else> (true) {
+           speak("Even: ~i~")
+       <>
+           speak("Odd: ~i~")
+       }
+   }
+   ```
+
+2. Math solving inside loops:
+   ```
+   loop <> count(5) {
+       result([24]) <> randomChoice([3, 4, 6, 8])
+       speak("Solution: ~result~")
+   }
+   ```
+
+3. Functions in loops:
+   ```
+   myFunc(params) <> function(loop)
+   loop <> count(3) {
+       myFunc(5)("console.log('test')")
+   }
+   ```
+
+4. User input in loops:
+   ```
+   loop <> count(3) {
+       name <> userIn("Enter name")
+       speak("Hello ~name~!")
+   }
+   ```
+
+5. String interpolation with loop variables:
+   ```
+   loop <> range(1, 5) as n {
+       speak("Number is ~n~")
+   }
+   ```
+
+All of this should "just work" because:
+- Loops use execute_body_block()
+- Body block calls execute_statement()
+- Execute statement handles all features
+- Beautiful composability!
+
+================================================================================
+WHAT COMES AFTER ITERATION?
+================================================================================
+
+Once loops are complete, you'll have the 4 fundamentals:
+✓ Sequence (done)
+✓ Variables (done)
+✓ Selection (done)
+✓ Iteration (in progress)
+
+Next priorities should be:
+
+1. **Better Abstraction** - Real functions
+   - Replace the weird "function(loop)" system
+   - Add proper function definitions with parameters
+   - Add return values
+   - Enable recursion
+
+2. **Data Structures** - Collections
+   - Arrays/lists: [1, 2, 3]
+   - Access by index: list[0]
+   - Iteration over collections
+   - Basic operations (push, pop, length)
+
+3. **Better Expressions** - Already have evalexpr
+   - Just expose more of its power
+   - Allow math expressions anywhere
+   - Add more functions (sqrt, sin, cos, etc.)
+
+4. **Modules and Imports**
+   - Split code across files
+   - Import/export system
+   - Build libraries of reusable code
+
+5. **Error Handling**
+   - Try/catch equivalent
+   - Graceful error recovery
+   - Better error messages
+
+But loops first! They unlock SO much programming power.
+
+================================================================================
+NOTES FOR IMPLEMENTATION
+================================================================================
+
+- Follow the same patterns used in selection (condition_evaluator.rs)
+- Reuse existing crates (regex, evalexpr, anyhow)
+- Keep the "quantum consciousness" terminology in output
+- Use println! with prefixes: ">>", "--", "!!", "=="
+- Test each phase completely before moving to next
+- Document as you go in Slut_101.txt
+- Create comprehensive test files
+- Handle errors gracefully with clear messages
+
+The loop_executor module is the key abstraction that makes everything else
+easier. Get that right, and the rest flows naturally.
+
+Good luck! You're building a real programming language now! 🚀
+
+================================================================================
+END OF ITERATION IMPLEMENTATION GUIDE
+================================================================================
