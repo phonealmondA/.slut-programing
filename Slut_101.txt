@@ -8,6 +8,9 @@ TABLE OF CONTENTS
 1. Introduction
 2. Basic Structure
 3. Language Features
+   3.1 Output - speak()
+   3.2 Output - woof
+   3.3 Selection Statements - if/elif/else
 4. Variables and Data Types
 5. Mathematical Problem Solving
 6. Functions and Polymorphism
@@ -87,6 +90,76 @@ Example:
     woof x
 
 Output: "Final result: 42"
+
+3.3 SELECTION STATEMENTS - if/elif/else
+---------------------------------------
+Execute different code paths based on conditions.
+
+Syntax:
+    if <> (condition1) <elif> (condition2) <else> (fallback) {
+        [statements for condition1]
+    <>
+        [statements for condition2]
+    <>
+        [statements for fallback]
+    }
+
+Key Points:
+- Start with `if <> (condition)`
+- Add zero or more `<elif> (condition)` clauses
+- Must end with `<else> (condition)` as the fallback (typically `true`)
+- Body blocks separated by standalone `<>` delimiters
+- Number of body blocks must match number of conditions
+- Conditions evaluated in order, first true condition executes
+
+Supported Operators:
+- Comparison: <, >, <=, >=, ==, !=
+- Logical: && (AND), || (OR), ! (NOT)
+- Grouping: ( ) for precedence
+
+Examples:
+
+Simple if-else:
+    x <> 15
+    if <> (x > 10) <else> (true) {
+        speak("x is large")
+    <>
+        speak("x is small")
+    }
+
+Multiple elif branches:
+    score <> 85
+    if <> (score >= 90) <elif> (score >= 80) <elif> (score >= 70) <else> (true) {
+        grade <> "A"
+    <>
+        grade <> "B"
+    <>
+        grade <> "C"
+    <>
+        grade <> "F"
+    }
+    speak("Grade: ~grade~")
+
+Logical operators:
+    age <> 25
+    hasLicense <> true
+    if <> (age >= 18 && hasLicense == true) <else> (true) {
+        speak("Can drive legally")
+    <>
+        speak("Cannot drive")
+    }
+
+Complex conditions:
+    temp <> 75
+    sunny <> true
+    if <> (temp > 70 && sunny == true) <elif> (temp > 50) <else> (true) {
+        activity <> "Go to beach"
+    <>
+        activity <> "Go for walk"
+    <>
+        activity <> "Stay inside"
+    }
+    speak("Activity: ~activity~")
 
 ================================================================================
 4. VARIABLES AND DATA TYPES
@@ -442,6 +515,83 @@ File: build.slut
 }
 ```
 
+8.7 Example: Selection Statements
+----------------------------------
+File: grading.slut
+
+```
+* <main> GradingSystem {
+    ^ observe_execution {
+        speak("=== Student Grading System ===")
+
+        # Get student score
+        score <> userIn("Enter student score (0-100)")
+
+        # Determine grade using selection
+        if <> (score >= 90) <elif> (score >= 80) <elif> (score >= 70) <elif> (score >= 60) <else> (true) {
+            grade <> "A"
+            message <> "Excellent work!"
+        <>
+            grade <> "B"
+            message <> "Good job!"
+        <>
+            grade <> "C"
+            message <> "Satisfactory"
+        <>
+            grade <> "D"
+            message <> "Needs improvement"
+        <>
+            grade <> "F"
+            message <> "Please see instructor"
+        }
+
+        speak("Score: ~score~")
+        speak("Grade: ~grade~")
+        speak("~message~")
+
+        # Check if passed
+        if <> (score >= 60) <else> (true) {
+            speak("Status: PASSED")
+        <>
+            speak("Status: FAILED")
+        }
+    }
+}
+```
+
+8.8 Example: Decision Making
+-----------------------------
+File: decision.slut
+
+```
+* <main> DecisionMaker {
+    ^ observe_execution {
+        speak("=== Weather Activity Planner ===")
+
+        temp <> userIn("Enter temperature (F)")
+        sunny <> userIn("Is it sunny? (true/false)")
+
+        # Complex decision based on multiple conditions
+        if <> (temp > 80 && sunny == true) <elif> (temp > 60 && sunny == true) <elif> (temp > 40) <else> (true) {
+            activity <> "Swimming"
+            clothing <> "Swimsuit and sunscreen"
+        <>
+            activity <> "Hiking"
+            clothing <> "Light jacket"
+        <>
+            activity <> "Indoor sports"
+            clothing <> "Warm clothes"
+        <>
+            activity <> "Stay inside"
+            clothing <> "Cozy sweater"
+        }
+
+        speak("Recommended activity: ~activity~")
+        speak("Suggested clothing: ~clothing~")
+    }
+}
+```
+
 ================================================================================
 9. RUNNING YOUR PROGRAMS
 ================================================================================
@@ -596,6 +746,7 @@ var <> randomChoice([opt1, opt2, ...])              # Random selection
 var([target]) <> randomChoice([nums])                # Math solving
 funcName(params) <> function(type)                   # Define function
 funcName(params)("body")                             # Execute function
+if <> (cond) <elif> (cond) <else> (cond) { ... }    # Selection statement
 
 Command Summary:
 ----------------

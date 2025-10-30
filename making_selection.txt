@@ -1,0 +1,476 @@
+================================================================================
+SELECTION (IF/ELIF/ELSE) IMPLEMENTATION GUIDE
+For Quantum Consciousness Programming Language (.slut)
+================================================================================
+
+FEATURE OVERVIEW:
+Add conditional branching to the language, allowing programs to execute
+different code paths based on boolean conditions.
+
+================================================================================
+SYNTAX SPECIFICATION
+================================================================================
+
+Basic Structure:
+```
+if <> (condition1) <elif> (condition2) <else> (condition3) {
+    [if-body statements]
+<>
+    [elif-body statements]
+<>
+    [else-body statements]
+}
+```
+
+Rules:
+1. Starts with "if <> (condition)"
+2. Can have zero or more "<elif> (condition)" clauses
+3. Must end with "<else> (condition)" as the fallback
+4. Body blocks are separated by "<>" delimiters
+5. Number of body blocks must match number of conditions (if + elifs + else)
+6. Each body block can contain multiple statements separated by spaces/newlines
+
+Supported Operators:
+- Comparison: <, >, <=, >=, ==, !=
+- Logical: && (AND), || (OR), ! (NOT)
+- Grouping: ( ) for precedence
+
+Examples:
+```
+# Simple if-else
+if <> (x > 10) <else> (true) {
+    speak("x is large")
+<>
+    speak("x is small")
+}
+
+# With elif
+if <> (score >= 90) <elif> (score >= 70) <else> (true) {
+    grade <> "A"
+<>
+    grade <> "B"
+<>
+    grade <> "F"
+}
+
+# Complex conditions
+if <> (age >= 18 && hasLicense == true) <else> (true) {
+    speak("Can drive")
+<>
+    speak("Cannot drive")
+}
+```
+
+================================================================================
+IMPLEMENTATION STEPS
+================================================================================
+
+STEP 1: Add Regex Pattern to Parse Selection Statements
+----------------------------------------------------------
+Location: src/main.rs, in execute_statement() method
+
+Add new regex pattern BEFORE other statement patterns:
+
+Pattern to match:
+```regex
+if\s*<>\s*\(([^)]+)\)\s*(?:<elif>\s*\(([^)]+)\)\s*)*<else>\s*\(([^)]+)\)\s*\{([\s\S]*?)\}
+```
+
+This captures:
+- First condition (if)
+- Zero or more elif conditions
+- Final else condition
+- The entire body block
+
+Note: You'll need a more sophisticated parser to handle multiple elifs properly.
+Consider parsing in stages:
+1. Match the entire if statement structure
+2. Extract all conditions between "if <>", "<elif>", and "<else>"
+3. Split the body by "<>" delimiters
+4. Map each condition to its corresponding body block
+
+
+STEP 2: Create Condition Evaluator
+----------------------------------------------------------
+Location: Create new file src/condition_evaluator.rs
+
+This module should:
+1. Take a condition string like "(x > 10 && y < 5)"
+2. Parse comparison operators and logical operators
+3. Resolve variable names to their current values
+4. Evaluate the boolean result
+
+Suggested approach:
+- Use the existing evalexpr crate (already in Cargo.toml)
+- Create a context with current variable values
+- Evaluate the condition expression
+- Return true/false
+
+Example structure:
+```rust
+pub struct ConditionEvaluator {
+    // reference to variable_manager to look up values
+}
+
+impl ConditionEvaluator {
+    pub fn evaluate(
+        &self, 
+        condition: &str, 
+        variables: &HashMap<String, VariableValue>
+    ) -> Result<bool> {
+        // 1. Replace variable names with their values
+        // 2. Use evalexpr to evaluate the boolean expression
+        // 3. Return the result
+    }
+}
+```
+
+
+STEP 3: Add Selection Execution Logic
+----------------------------------------------------------
+Location: src/main.rs, add new method to QuantumTranspiler
+
+Add method:
+```rust
+fn execute_selection_statement(
+    &mut self,
+    conditions: Vec<String>,  // ["x > 10", "x > 5", "true"]
+    bodies: Vec<String>,      // ["speak(\"large\")", "speak(\"medium\")", "speak(\"small\")"]
+    class_name: &str
+) -> Result<()> {
+    println!(">> Evaluating selection statement with {} branches", conditions.len());
+    
+    // Get current variables for condition evaluation
+    let variables = self.variable_manager.get_all_variables();
+    
+    // Evaluate each condition in order
+    for (i, condition) in conditions.iter().enumerate() {
+        let result = self.evaluate_condition(condition, &variables)?;
+        
+        if result {
+            println!("-- Condition {} evaluated to true: {}", i, condition);
+            println!("-- Executing branch {}", i);
+            
+            // Execute the corresponding body block
+            let body = &bodies[i];
+            self.execute_body_block(body, class_name)?;
+            
+            return Ok(()); // Exit after first true condition
+        } else {
+            println!("-- Condition {} evaluated to false: {}", i, condition);
+        }
+    }
+    
+    // If we get here, something went wrong (else should always be true)
+    println!("!! Warning: No condition matched (else should be true)");
+    Ok(())
+}
+
+fn evaluate_condition(
+    &self,
+    condition: &str,
+    variables: &HashMap<String, StoredVariable>
+) -> Result<bool> {
+    // Use evalexpr to evaluate boolean expressions
+    // Need to convert variables to evalexpr context
+    
+    use evalexpr::*;
+    let mut context = HashMapContext::new();
+    
+    // Add all variables to context
+    for (name, var) in variables {
+        match &var.value {
+            VariableValue::Number(n) => {
+                context.set_value(name.clone(), Value::from(*n))?;
+            }
+            VariableValue::Boolean(b) => {
+                context.set_value(name.clone(), Value::from(*b))?;
+            }
+            VariableValue::String(s) => {
+                context.set_value(name.clone(), Value::from(s.as_str()))?;
+            }
+            _ => {}
+        }
+    }
+    
+    // Evaluate the condition
+    match eval_boolean_with_context(condition, &context) {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            println!("!! Error evaluating condition '{}': {}", condition, e);
+            Ok(false) // Default to false on error
+        }
+    }
+}
+
+fn execute_body_block(&mut self, body: &str, class_name: &str) -> Result<()> {
+    // Split body by newlines/spaces and execute each statement
+    for line in body.split_whitespace().filter(|s| !s.is_empty()) {
+        // Handle multi-word statements carefully
+        // This is simplified - you may need smarter parsing
+        
+        if line.starts_with("speak(") {
+            self.execute_statement(line, class_name)?;
+        } else if line.contains("<>") {
+            self.execute_statement(line, class_name)?;
+        }
+    }
+    Ok(())
+}
+```
+
+
+STEP 4: Update execute_statement() to Handle Selection
+----------------------------------------------------------
+Location: src/main.rs, in execute_statement() method
+
+Add this EARLY in the execute_statement() method (before other patterns):
+
+```rust
+// Check for selection statement (if/elif/else)
+let selection_regex = Regex::new(
+    r"if\s*<>\s*\(([^)]+)\)((?:\s*<elif>\s*\([^)]+\))*)\s*<else>\s*\(([^)]+)\)\s*\{([\s\S]*?)\}"
+)?;
+
+if let Some(captures) = selection_regex.captures(statement) {
+    let if_condition = &captures[1];
+    let elif_part = &captures[2];
+    let else_condition = &captures[3];
+    let full_body = &captures[4];
+    
+    // Parse elif conditions
+    let elif_regex = Regex::new(r"<elif>\s*\(([^)]+)\)")?;
+    let elif_conditions: Vec<String> = elif_regex
+        .captures_iter(elif_part)
+        .map(|c| c[1].to_string())
+        .collect();
+    
+    // Build complete conditions list
+    let mut conditions = vec![if_condition.to_string()];
+    conditions.extend(elif_conditions);
+    conditions.push(else_condition.to_string());
+    
+    // Split body by <> delimiter
+    let bodies: Vec<String> = full_body
+        .split("<>")
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    // Verify we have matching conditions and bodies
+    if conditions.len() != bodies.len() {
+        println!("!! Selection error: {} conditions but {} body blocks", 
+                conditions.len(), bodies.len());
+        return Ok(());
+    }
+    
+    return self.execute_selection_statement(conditions, bodies, class_name);
+}
+```
+
+
+STEP 5: Update Body Block Parsing
+----------------------------------------------------------
+The execute_body_block() method needs improvement to handle multiple statements
+in a body block properly.
+
+Consider:
+- Statements might be on same line or different lines
+- Need to identify statement boundaries
+- Some statements are multi-word (like string interpolation)
+
+Suggested approach:
+1. Use a simple heuristic: split on newlines first
+2. If a line doesn't look like a complete statement, combine with next line
+3. Look for statement patterns: speak(), <>, woof, etc.
+
+
+STEP 6: Add Boolean Comparison Support to Variable Manager
+----------------------------------------------------------
+Location: src/variable_manager.rs
+
+Ensure VariableValue supports boolean comparisons:
+- Add methods to compare variables (greater_than, less_than, equals, etc.)
+- Or rely on evalexpr to do this automatically
+
+
+STEP 7: Handle Edge Cases
+----------------------------------------------------------
+1. Nested selections: Not required for first version, but document limitation
+2. Empty body blocks: Should be allowed
+3. Variables assigned in one branch: Should be accessible after the selection
+4. Invalid conditions: Should fail gracefully with error message
+5. Mismatched condition/body counts: Catch and report error
+
+
+================================================================================
+TESTING EXAMPLES
+================================================================================
+
+Create test file: test_selection.slut
+
+```slut
+* <main> SelectionTest {
+    ^ observe_execution {
+        speak("=== Testing Selection ===")
+        
+        # Test 1: Simple if-else
+        x <> 15
+        if <> (x > 10) <else> (true) {
+            speak("x is greater than 10")
+        <>
+            speak("x is not greater than 10")
+        }
+        
+        # Test 2: Multiple elif branches
+        score <> 85
+        if <> (score >= 90) <elif> (score >= 80) <elif> (score >= 70) <else> (true) {
+            grade <> "A"
+        <>
+            grade <> "B"
+        <>
+            grade <> "C"
+        <>
+            grade <> "F"
+        }
+        speak("Grade: ~grade~")
+        
+        # Test 3: Logical operators
+        age <> 25
+        hasLicense <> true
+        if <> (age >= 18 && hasLicense == true) <else> (true) {
+            speak("Can drive legally")
+        <>
+            speak("Cannot drive")
+        }
+        
+        # Test 4: Complex conditions
+        temp <> 75
+        sunny <> true
+        if <> (temp > 70 && sunny == true) <elif> (temp > 50) <else> (true) {
+            activity <> "Go to beach"
+        <>
+            activity <> "Go for walk"
+        <>
+            activity <> "Stay inside"
+        }
+        speak("Activity: ~activity~")
+        
+        speak("=== All tests complete ===")
+    }
+}
+```
+
+Expected output:
+```
+>> Evaluating selection statement with 2 branches
+-- Condition 0 evaluated to true: x > 10
+-- Executing branch 0
+x is greater than 10
+
+>> Evaluating selection statement with 4 branches
+-- Condition 0 evaluated to false: score >= 90
+-- Condition 1 evaluated to true: score >= 80
+-- Executing branch 1
+Grade: B
+
+>> Evaluating selection statement with 2 branches
+-- Condition 0 evaluated to true: age >= 18 && hasLicense == true
+-- Executing branch 0
+Can drive legally
+
+>> Evaluating selection statement with 3 branches
+-- Condition 0 evaluated to true: temp > 70 && sunny == true
+-- Executing branch 0
+Activity: Go to beach
+
+=== All tests complete ===
+```
+
+
+================================================================================
+FILES TO MODIFY
+================================================================================
+
+1. src/main.rs
+   - Add selection regex pattern to execute_statement()
+   - Add execute_selection_statement() method
+   - Add evaluate_condition() method
+   - Add execute_body_block() method
+
+2. src/condition_evaluator.rs (NEW FILE)
+   - Create ConditionEvaluator struct
+   - Implement condition parsing and evaluation
+   - Handle variable resolution
+
+3. Cargo.toml
+   - Ensure evalexpr dependency is present (it already is)
+
+4. Slut_101.txt
+   - Add section documenting selection syntax
+   - Add examples showing if/elif/else usage
+
+
+================================================================================
+IMPLEMENTATION CHECKLIST
+================================================================================
+
+[ ] Create src/condition_evaluator.rs with basic evaluation
+[ ] Add selection regex pattern to execute_statement()
+[ ] Implement execute_selection_statement() method
+[ ] Implement evaluate_condition() using evalexpr
+[ ] Implement execute_body_block() for multi-statement blocks
+[ ] Handle variable assignments within selection branches
+[ ] Test with simple if-else (2 branches)
+[ ] Test with if-elif-else (3+ branches)
+[ ] Test with complex conditions (&&, ||, !)
+[ ] Test with variable comparisons
+[ ] Add error handling for invalid syntax
+[ ] Update documentation in Slut_101.txt
+[ ] Create comprehensive test file
+
+
+================================================================================
+KNOWN LIMITATIONS & FUTURE ENHANCEMENTS
+================================================================================
+
+Current Design Limitations:
+1. Cannot nest selections (if inside if) - parser would need to be recursive
+2. Body blocks must be simple statements - complex nested structures difficult
+3. All conditions declared upfront - verbose for many branches
+
+Future Enhancements:
+1. Support nested selections
+2. Add pattern matching (switch/match equivalent)
+3. Ternary operator: result <> (condition) ? value1 : value2
+4. Short-circuit evaluation optimization
+5. Better error messages showing which condition failed
+
+
+================================================================================
+DEBUGGING TIPS
+================================================================================
+
+1. Add verbose logging to see which conditions are evaluated
+2. Print the parsed conditions and bodies before execution
+3. Test each component separately:
+   - Condition parsing
+   - Condition evaluation
+   - Body execution
+4. Start with simple cases and gradually add complexity
+5. Check variable values before condition evaluation
+
+
+================================================================================
+NOTES FOR CLAUDE CODE
+================================================================================
+
+- The existing codebase uses evalexpr for expression evaluation (see math_engine.rs)
+- Follow existing patterns for regex parsing (see execute_statement method)
+- Maintain the quantum/consciousness terminology in output messages
+- Use println! with ">>", "--", "!!", "==" prefixes for consistency
+- Ensure variables assigned in selection branches persist after the selection
+- The language uses <> as a primary operator, so use it for body delimiters
+- Consider body block parsing carefully - spaces and newlines are tricky
+
+================================================================================

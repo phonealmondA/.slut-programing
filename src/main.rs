@@ -16,12 +16,14 @@ mod math_engine;
 mod equation_solver;
 mod variable_manager;
 mod interactive_engine;
+mod condition_evaluator;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
 use math_engine::MathEngine;
 use variable_manager::VariableManager;
 use interactive_engine::InteractiveEngine;
+use condition_evaluator::ConditionEvaluator;
 
 #[derive(Parser)]
 #[command(name = "quantum")]
@@ -180,6 +182,7 @@ struct QuantumTranspiler {
     function_executor: FunctionExecutor,
     math_engine: MathEngine,
     variable_manager: VariableManager,
+    condition_evaluator: ConditionEvaluator,
     current_class_name: String,
 }
 
@@ -206,7 +209,8 @@ impl QuantumTranspiler {
         let function_executor = FunctionExecutor::new()?;
         let math_engine = MathEngine::new(cache.math_solutions.clone(), cache.variable_attempts.clone());
         let variable_manager = VariableManager::new(cache.variables.clone());
-        
+        let condition_evaluator = ConditionEvaluator::new();
+
         Ok(Self {
             cache,
             execution_count: 0,
@@ -214,6 +218,7 @@ impl QuantumTranspiler {
             function_executor,
             math_engine,
             variable_manager,
+            condition_evaluator,
             current_class_name: String::new(),
         })
     }
@@ -291,17 +296,153 @@ impl QuantumTranspiler {
     }
     
     fn execute_main_body(&mut self, body: &str, class_name: &str) -> Result<()> {
-        for line in body.lines() {
-            let line = line.trim();
-            if line.is_empty() { continue; }
-            
-            self.execute_statement(line, class_name)?;
+        let mut lines = body.lines().collect::<Vec<&str>>();
+        let mut i = 0;
+
+        while i < lines.len() {
+            let line = lines[i].trim();
+
+            // Skip empty lines and comments
+            if line.is_empty() || line.starts_with('#') {
+                i += 1;
+                continue;
+            }
+
+            // Check if this is the start of a selection statement
+            if line.starts_with("if") && line.contains("<>") {
+                // Collect the entire selection statement across multiple lines
+                let mut full_statement = String::new();
+                let mut brace_count = 0;
+                let mut in_selection = false;
+                let mut first_line = true;
+
+                while i < lines.len() {
+                    let current_line = lines[i].trim();
+
+                    if current_line.is_empty() {
+                        i += 1;
+                        continue;
+                    }
+
+                    // Track braces BEFORE adding to statement
+                    let has_open_brace = current_line.contains('{');
+                    brace_count += current_line.chars().filter(|&c| c == '{').count() as i32;
+                    brace_count -= current_line.chars().filter(|&c| c == '}').count() as i32;
+
+                    // Add line to statement, preserving structure
+                    if first_line {
+                        // First line: "if <> (...) ... {"
+                        full_statement.push_str(current_line);
+                        first_line = false;
+                    } else if has_open_brace {
+                        // Line with opening brace
+                        full_statement.push(' ');
+                        full_statement.push_str(current_line);
+                    } else if current_line == "<>" {
+                        // Delimiter line - preserve with newline
+                        full_statement.push('\n');
+                        full_statement.push_str(current_line);
+                        full_statement.push('\n');
+                    } else if current_line.starts_with("<elif>") || current_line.starts_with("<else>") {
+                        // Condition lines
+                        full_statement.push(' ');
+                        full_statement.push_str(current_line);
+                    } else {
+                        // Regular statement line
+                        full_statement.push('\n');
+                        full_statement.push_str(current_line);
+                    }
+
+                    if brace_count > 0 {
+                        in_selection = true;
+                    }
+
+                    i += 1;
+
+                    // Break when we've closed all braces
+                    if in_selection && brace_count == 0 {
+                        break;
+                    }
+                }
+
+                // Execute the complete selection statement
+                self.execute_statement(&full_statement, class_name)?;
+            } else {
+                // Regular single-line statement
+                self.execute_statement(line, class_name)?;
+                i += 1;
+            }
         }
         Ok(())
     }
     
     fn execute_statement(&mut self, statement: &str, class_name: &str) -> Result<()> {
-        
+        // Check for selection statement (if/elif/else) - must be checked FIRST
+        let selection_regex = Regex::new(
+            r"if\s*<>\s*\(([^)]+)\)((?:\s*<elif>\s*\([^)]+\))*)\s*<else>\s*\(([^)]+)\)\s*\{([\s\S]*?)\}"
+        )?;
+
+        if let Some(captures) = selection_regex.captures(statement) {
+            let if_condition = &captures[1];
+            let elif_part = &captures[2];
+            let else_condition = &captures[3];
+            let full_body = &captures[4];
+
+            // Parse elif conditions
+            let elif_regex = Regex::new(r"<elif>\s*\(([^)]+)\)")?;
+            let elif_conditions: Vec<String> = elif_regex
+                .captures_iter(elif_part)
+                .map(|c| c[1].to_string())
+                .collect();
+
+            // Build complete conditions list
+            let mut conditions = vec![if_condition.to_string()];
+            conditions.extend(elif_conditions);
+            conditions.push(else_condition.to_string());
+
+            // Split body by standalone <> delimiter (not part of assignments)
+            // A standalone <> appears at the start of a line with optional whitespace
+            let bodies: Vec<String> = {
+                let mut body_blocks = Vec::new();
+                let mut current_block = String::new();
+
+                for line in full_body.lines() {
+                    let trimmed = line.trim();
+
+                    // Check if this line is ONLY the delimiter
+                    if trimmed == "<>" {
+                        // Save current block and start new one
+                        if !current_block.trim().is_empty() {
+                            body_blocks.push(current_block.trim().to_string());
+                        }
+                        current_block.clear();
+                    } else if !trimmed.is_empty() {
+                        // Add line to current block
+                        if !current_block.is_empty() {
+                            current_block.push('\n');
+                        }
+                        current_block.push_str(trimmed);
+                    }
+                }
+
+                // Don't forget the last block
+                if !current_block.trim().is_empty() {
+                    body_blocks.push(current_block.trim().to_string());
+                }
+
+                body_blocks
+            };
+
+            // Verify we have matching conditions and bodies
+            if conditions.len() != bodies.len() {
+                println!("!! Selection error: {} conditions but {} body blocks",
+                        conditions.len(), bodies.len());
+                return Ok(());
+            }
+
+            return self.execute_selection_statement(conditions, bodies, class_name);
+        }
+
         let speak_interpolation_regex = Regex::new(r#"speak\s*\(\s*"([^"]*)"\s*\)"#)?;
         if let Some(captures) = speak_interpolation_regex.captures(statement) {
             let message = &captures[1];
@@ -673,16 +814,116 @@ impl QuantumTranspiler {
     
     fn execute_polymorphic_function(&mut self, func_name: &str, params: &str, body: &str) -> Result<()> {
         let param_list: Vec<&str> = params.split(',').map(|p| p.trim()).collect();
-        
-        println!(">> Executing built function: {}({}) with {} parameters", 
+
+        println!(">> Executing built function: {}({}) with {} parameters",
                 func_name, params, param_list.len());
-        
+
         if let Some(built_function) = self.cache.built_functions.get(func_name) {
             self.function_executor.execute_function(built_function, &param_list, body)?;
         } else {
             println!("!! Function {} not found in built functions - needs synthesis first", func_name);
         }
-        
+
+        Ok(())
+    }
+
+    /// Execute a selection statement (if/elif/else)
+    ///
+    /// Evaluates conditions in order and executes the first matching branch
+    fn execute_selection_statement(
+        &mut self,
+        conditions: Vec<String>,
+        bodies: Vec<String>,
+        class_name: &str
+    ) -> Result<()> {
+        println!(">> Evaluating selection statement with {} branches", conditions.len());
+
+        // Get current variables for condition evaluation
+        let variables = self.variable_manager.get_all_variables();
+
+        // Evaluate each condition in order
+        for (i, condition) in conditions.iter().enumerate() {
+            let result = self.condition_evaluator.evaluate(condition, &variables)?;
+
+            if result {
+                println!("-- Condition {} evaluated to true: {}", i, condition);
+                println!("-- Executing branch {}", i);
+
+                // Execute the corresponding body block
+                let body = &bodies[i];
+                self.execute_body_block(body, class_name)?;
+
+                return Ok(()); // Exit after first true condition
+            } else {
+                println!("-- Condition {} evaluated to false: {}", i, condition);
+            }
+        }
+
+        // If we get here, something went wrong (else should always be true)
+        println!("!! Warning: No condition matched (else should be true)");
+        Ok(())
+    }
+
+    /// Execute statements within a body block
+    ///
+    /// Parses and executes multiple statements that may be separated by
+    /// newlines or spaces
+    fn execute_body_block(&mut self, body: &str, class_name: &str) -> Result<()> {
+        println!("   >> Executing body block");
+
+        // Split by newlines first to handle multi-line bodies
+        let lines: Vec<&str> = body.lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect();
+
+        if lines.is_empty() {
+            // Try splitting by spaces if no newlines
+            let parts: Vec<&str> = body.split_whitespace()
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            // Reconstruct statements - this is a simple approach
+            // that works for most cases
+            let mut current_statement = String::new();
+            let mut in_string = false;
+            let mut paren_depth = 0;
+
+            for part in parts {
+                // Track string literals
+                if part.contains('"') {
+                    in_string = !in_string;
+                }
+
+                // Track parentheses
+                paren_depth += part.chars().filter(|&c| c == '(').count() as i32;
+                paren_depth -= part.chars().filter(|&c| c == ')').count() as i32;
+
+                if current_statement.is_empty() {
+                    current_statement = part.to_string();
+                } else {
+                    current_statement.push(' ');
+                    current_statement.push_str(part);
+                }
+
+                // Execute when we have a complete statement
+                if !in_string && paren_depth == 0 {
+                    self.execute_statement(&current_statement, class_name)?;
+                    current_statement.clear();
+                }
+            }
+
+            // Execute any remaining statement
+            if !current_statement.is_empty() {
+                self.execute_statement(&current_statement, class_name)?;
+            }
+        } else {
+            // Execute each line as a statement
+            for line in lines {
+                self.execute_statement(line, class_name)?;
+            }
+        }
+
         Ok(())
     }
 }
