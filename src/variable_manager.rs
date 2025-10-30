@@ -115,6 +115,10 @@ impl VariableManager {
     }
     
     pub fn resolve_expression_inputs(&self, inputs_str: &str) -> Vec<f64> {
+        self.resolve_expression_inputs_with_target(inputs_str, None)
+    }
+
+    pub fn resolve_expression_inputs_with_target(&self, inputs_str: &str, target: Option<f64>) -> Vec<f64> {
         let mut resolved = Vec::new();
         let mut blanks_count = 0;
         
@@ -154,16 +158,26 @@ impl VariableManager {
         
         if blanks_count > 0 {
             println!("-- Found {} blank placeholders (?), searching for cached solutions...", blanks_count);
-            
+            if let Some(t) = target {
+                println!("   >> Target-aware selection enabled for target: {}", t);
+            }
+
             let available_solutions = self.get_available_cached_solutions();
-            let mut added_solutions = 0;
-            
-            for solution in available_solutions {
-                if added_solutions < blanks_count {
-                    resolved.push(solution);
-                    println!("   + Filled ? with cached solution: {}", solution);
-                    added_solutions += 1;
-                }
+
+            // Use diverse selection strategy to avoid filling all blanks with same value
+            let selected_solutions = self.select_diverse_solutions(&available_solutions, blanks_count, target);
+
+            let filled_count = selected_solutions.len();
+            for solution in selected_solutions {
+                resolved.push(solution);
+                println!("   + Filled ? with cached solution: {}", solution);
+            }
+
+            // Warn if we couldn't fill all blanks
+            if filled_count < blanks_count {
+                println!("   >> Warning: Need {} blanks but only have {} cached values",
+                         blanks_count, filled_count);
+                println!("   >> Some placeholders remain unfilled. Provide more concrete inputs or build up cache.");
             }
         }
         
@@ -172,39 +186,191 @@ impl VariableManager {
     
     fn get_available_cached_solutions(&self) -> Vec<f64> {
         let mut solutions = Vec::new();
-        
+
         for (name, var) in &self.variables {
             if let VariableValue::Number(num) = &var.value {
-                
-                if *num > 1.0 && 
-                   *num != 42.0 &&    
-                   *num != 25.0 &&    
-                   *num != 360.0 &&   
-                   !name.starts_with("target") && 
+
+                if *num > 1.0 &&
+                   *num != 42.0 &&
+                   *num != 25.0 &&
+                   *num != 360.0 &&
+                   !name.starts_with("target") &&
                    !name.starts_with("myNumber") {
-                    
+
                     if var.source_equation.is_some() {
                         solutions.push(*num);
-                        println!("   - Found computed solution: {} = {} (from: {})", 
+                        println!("   - Found computed solution: {} = {} (from: {})",
                                 name, num, var.source_equation.as_ref().unwrap());
                     } else if solutions.len() < 3 {
-                        
+
                         solutions.push(*num);
                         println!("   - Found stored value: {} = {}", name, num);
                     }
                 }
             }
         }
-        
+
+        // Remove duplicates to ensure diversity
         solutions.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+        solutions.dedup_by(|a, b| (*a - *b).abs() < f64::EPSILON);
+
         if solutions.is_empty() {
             println!("   - No suitable cached solutions found");
         } else {
-            println!("   - Available cached solutions: {:?}", solutions);
+            println!("   - Available cached solutions (deduplicated): {:?}", solutions);
         }
-        
+
         solutions
+    }
+
+    /// Selects diverse cached solutions for placeholder filling
+    /// Strategy: Distribute values across small, medium, and large ranges
+    /// With optional target-aware optimization
+    fn select_diverse_solutions(&self, available: &[f64], count: usize, target: Option<f64>) -> Vec<f64> {
+        if available.is_empty() {
+            return Vec::new();
+        }
+
+        if available.len() <= count {
+            // If we have fewer or equal cached values than needed, return all
+            return available.to_vec();
+        }
+
+        let mut selected = Vec::new();
+        let len = available.len();
+
+        println!("   >> Selecting {} diverse values from {} available solutions", count, len);
+
+        // Target-aware selection: Filter and prioritize based on target size
+        if let Some(t) = target {
+            let filtered = self.filter_by_target_range(available, t);
+
+            if !filtered.is_empty() && filtered.len() >= count {
+                // Use filtered set for better target alignment
+                println!("      >> Using target-aware filtered set of {} values", filtered.len());
+                return self.distribute_values(&filtered, count);
+            } else if !filtered.is_empty() {
+                // Use what we have from filtered set, then add from full set
+                println!("      >> Target filtering gave {} values, need {}", filtered.len(), count);
+                selected.extend_from_slice(&filtered);
+                let remaining = count - selected.len();
+
+                // Add diverse values from remaining set
+                let remaining_values: Vec<f64> = available.iter()
+                    .filter(|v| !selected.contains(v))
+                    .copied()
+                    .collect();
+
+                if !remaining_values.is_empty() {
+                    let extra = self.distribute_values(&remaining_values, remaining);
+                    selected.extend(extra);
+                }
+
+                return selected;
+            }
+            // If filtered is empty, fall through to default distribution
+        }
+
+        // Default diverse selection without target awareness
+        self.distribute_values(available, count)
+    }
+
+    /// Filter cached values based on target size
+    /// Strategy from improvement plan:
+    /// - Small target (< 100): Prefer small values
+    /// - Medium target (100-1000): Mix of small and large
+    /// - Large target (> 1000): Prefer large values + small multipliers
+    fn filter_by_target_range(&self, available: &[f64], target: f64) -> Vec<f64> {
+        let mut filtered: Vec<f64> = if target < 100.0 {
+            // Small target: prefer small values (< target * 2)
+            println!("      >> Small target ({}) - preferring small cached values", target);
+            available.iter()
+                .filter(|&&v| v < target * 2.0)
+                .copied()
+                .collect()
+        } else if target < 1000.0 {
+            // Medium target: mix of small and large
+            // Include values from 1 to target * 2
+            println!("      >> Medium target ({}) - selecting balanced range", target);
+            available.iter()
+                .filter(|&&v| v >= 2.0 && v <= target * 2.0)
+                .copied()
+                .collect()
+        } else {
+            // Large target: prefer large values and small multipliers
+            println!("      >> Large target ({}) - preferring large values and small multipliers", target);
+            let small_multipliers: Vec<f64> = available.iter()
+                .filter(|&&v| v >= 2.0 && v <= 20.0)
+                .copied()
+                .collect();
+
+            let large_bases: Vec<f64> = available.iter()
+                .filter(|&&v| v > 20.0 && v <= target * 1.5)
+                .copied()
+                .collect();
+
+            // Combine small multipliers and large bases
+            let mut combined = small_multipliers;
+            combined.extend(large_bases);
+            combined.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            combined.dedup_by(|a, b| (*a - *b).abs() < f64::EPSILON);
+            combined
+        };
+
+        // Always ensure we have at least some values
+        if filtered.is_empty() && !available.is_empty() {
+            // Fallback: use values closest to target/3 (useful for multiplication)
+            filtered = available.to_vec();
+        }
+
+        filtered
+    }
+
+    /// Distribute count values evenly across the available range
+    fn distribute_values(&self, available: &[f64], count: usize) -> Vec<f64> {
+        let mut selected = Vec::new();
+        let len = available.len();
+
+        if len <= count {
+            return available.to_vec();
+        }
+
+        match count {
+            1 => {
+                // Take middle value
+                let idx = len / 2;
+                selected.push(available[idx]);
+                println!("      + Selected middle value: {}", available[idx]);
+            }
+            2 => {
+                // Take smallest and largest for maximum diversity
+                selected.push(available[0]);
+                selected.push(available[len - 1]);
+                println!("      + Selected smallest: {}", available[0]);
+                println!("      + Selected largest: {}", available[len - 1]);
+            }
+            _ => {
+                // Take smallest, evenly distributed middle values, and largest
+                selected.push(available[0]);
+                println!("      + Selected smallest: {}", available[0]);
+
+                // Calculate how many middle values we need
+                let middle_count = count - 2;
+                let step = (len - 2) as f64 / (middle_count + 1) as f64;
+
+                for i in 1..=middle_count {
+                    let idx = (i as f64 * step).round() as usize;
+                    let idx = idx.min(len - 2).max(1); // Ensure valid range
+                    selected.push(available[idx]);
+                    println!("      + Selected middle value: {}", available[idx]);
+                }
+
+                selected.push(available[len - 1]);
+                println!("      + Selected largest: {}", available[len - 1]);
+            }
+        }
+
+        selected
     }
     
     pub fn resolve_mixed_inputs(&self, inputs_str: &str) -> Vec<VariableValue> {

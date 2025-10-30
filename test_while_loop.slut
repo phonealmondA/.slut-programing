@@ -1,0 +1,28 @@
+* <main> LearnToSolve {
+    ^ observe_execution {
+        speak("=== Interactive Math Solver ===")
+        speak("")
+        
+        targetNum <> userIn("Enter target number to solve for")
+        firstInput <> userIn("Enter first input number")
+        secondInput <> userIn("Enter second input number")
+        
+        speak("")
+        speak("Searching for: ~targetNum~ using [~firstInput~, ~secondInput~, ?]")
+        speak("The ? will be filled from cached solutions...")
+        speak("")
+        
+        result([targetNum]) <> randomChoice([?, ?, ?])
+        
+        speak("")
+        speak("========================================")
+        speak("RESULT: ~result~")
+        speak("SOURCE: See equation above")
+        speak("========================================")
+        speak("")
+        speak("TIP: Run again with different numbers!")
+        speak("     The system remembers ~result~ now.")
+        
+        woof result
+    }
+}

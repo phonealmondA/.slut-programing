@@ -33,6 +33,52 @@ impl EquationSolver {
                 result: num,
                 equation: num.to_string(),
             });
+
+            // Square root for positive numbers
+            if num >= 0.0 {
+                operations.push(Operation {
+                    result: num.sqrt(),
+                    equation: format!("sqrt({})", num),
+                });
+            }
+
+            // Absolute value
+            operations.push(Operation {
+                result: num.abs(),
+                equation: format!("abs({})", num),
+            });
+
+            // Square
+            operations.push(Operation {
+                result: num * num,
+                equation: format!("{} ^ 2", num),
+            });
+
+            // Cube
+            operations.push(Operation {
+                result: num * num * num,
+                equation: format!("{} ^ 3", num),
+            });
+
+            // Factorial for small positive integers
+            if num >= 0.0 && num <= 12.0 && num.fract() == 0.0 {
+                let factorial = self.factorial(num as u32);
+                operations.push(Operation {
+                    result: factorial,
+                    equation: format!("{}!", num),
+                });
+            }
+
+            // Ceiling and floor
+            operations.push(Operation {
+                result: num.ceil(),
+                equation: format!("ceil({})", num),
+            });
+
+            operations.push(Operation {
+                result: num.floor(),
+                equation: format!("floor({})", num),
+            });
         }
         
         operations.extend(self.generate_two_number_operations(&nums));
@@ -146,9 +192,49 @@ impl EquationSolver {
                     equation: format!("atan2({}, {})", a, b),
                 });
 
+                // Average
+                ops.push(Operation {
+                    result: (a + b) / 2.0,
+                    equation: format!("avg({}, {})", a, b),
+                });
+
+                // Geometric mean for positive numbers
+                if a > 0.0 && b > 0.0 {
+                    ops.push(Operation {
+                        result: (a * b).sqrt(),
+                        equation: format!("geomean({}, {})", a, b),
+                    });
+                }
+
                 ops
             })
             .collect()
+    }
+
+    /// Calculate factorial for small numbers (up to 12! = 479,001,600)
+    fn factorial(&self, n: u32) -> f64 {
+        match n {
+            0 | 1 => 1.0,
+            2 => 2.0,
+            3 => 6.0,
+            4 => 24.0,
+            5 => 120.0,
+            6 => 720.0,
+            7 => 5040.0,
+            8 => 40320.0,
+            9 => 362880.0,
+            10 => 3628800.0,
+            11 => 39916800.0,
+            12 => 479001600.0,
+            _ => {
+                // For larger numbers, compute iteratively
+                let mut result = 1.0;
+                for i in 2..=n {
+                    result *= i as f64;
+                }
+                result
+            }
+        }
     }
     
     fn generate_three_number_operations(&self, nums: &[f64]) -> Vec<Operation> {
@@ -382,6 +468,20 @@ impl EquationSolver {
                             });
                         }
                     }
+
+                // Average of three numbers
+                ops.push(Operation {
+                    result: (a + b + c) / 3.0,
+                    equation: format!("avg({}, {}, {})", a, b, c),
+                });
+
+                // Geometric mean for three positive numbers
+                if a > 0.0 && b > 0.0 && c > 0.0 {
+                    ops.push(Operation {
+                        result: (a * b * c).cbrt(),
+                        equation: format!("geomean({}, {}, {})", a, b, c),
+                    });
+                }
 
                 ops
             })

@@ -853,7 +853,7 @@ impl QuantumTranspiler {
             return Ok(());
         };
         
-        let inputs = self.variable_manager.resolve_expression_inputs(inputs_str);
+        let inputs = self.variable_manager.resolve_expression_inputs_with_target(inputs_str, Some(target));
         
         println!(">> Target-seeking quantum mathematics for variable '{}': target={}, inputs={:?}", 
                 var_name, target, inputs);
