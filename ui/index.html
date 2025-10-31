@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quantum Consciousness IDE</title>
+
+    <!-- Load Tauri API -->
+    <script type="module">
+        // This ensures Tauri API is available
+        if (!window.__TAURI__) {
+            console.error('Tauri not detected - attempting to load from CDN');
+        }
+    </script>
+
     <style>
         * { 
             margin: 0; 
@@ -296,10 +305,10 @@
             </div>
             
             <div class="button-group">
-                <button onclick="runOnce()" id="runOnceBtn">
+                <button onclick="runOnce()" id="runOnceBtn" disabled>
                     ▶️ Run Once
                 </button>
-                <button onclick="runUntilSolved()" class="secondary" id="runLoopBtn">
+                <button onclick="runUntilSolved()" class="secondary" id="runLoopBtn" disabled>
                     🔁 Loop Until Solved
                 </button>
                 <button onclick="stopExecution()" class="danger" id="stopBtn" disabled>
@@ -372,25 +381,84 @@ Your programs will learn and improve with each run!
     </div>
     
     <script>
-        // Import Tauri API
-        const { invoke } = window.__TAURI__.tauri;
-        const { open } = window.__TAURI__.dialog;
-
-        // Global state
+        // Global state (declare first before anything else)
         let currentFile = null;
         let isRunning = false;
 
-        // UI Elements
-        const dropZone = document.getElementById('dropZone');
-        const fileInfo = document.getElementById('fileInfo');
-        const output = document.getElementById('output');
-        const statusIndicator = document.getElementById('statusIndicator');
-        const runOnceBtn = document.getElementById('runOnceBtn');
-        const runLoopBtn = document.getElementById('runLoopBtn');
-        const stopBtn = document.getElementById('stopBtn');
+        // Tauri API references (will be set after window loads)
+        let invoke, open, listen;
 
-        // File selection handler
-        dropZone.addEventListener('click', async () => {
+        // UI Elements
+        let dropZone, fileInfo, output, statusIndicator, runOnceBtn, runLoopBtn, stopBtn;
+
+        // Wait for Tauri to be ready
+        function waitForTauri() {
+            return new Promise((resolve) => {
+                if (window.__TAURI__ && window.__TAURI__.tauri && window.__TAURI__.dialog && window.__TAURI__.event) {
+                    resolve();
+                } else {
+                    console.log('Waiting for Tauri API...');
+                    setTimeout(() => waitForTauri().then(resolve), 100);
+                }
+            });
+        }
+
+        // Initialize when window loads
+        window.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOM loaded, waiting for Tauri...');
+
+            try {
+                // Wait for Tauri to be ready
+                await waitForTauri();
+                console.log('Tauri API ready!');
+
+                // Initialize Tauri API
+                invoke = window.__TAURI__.tauri.invoke;
+                open = window.__TAURI__.dialog.open;
+                listen = window.__TAURI__.event.listen;
+
+                // Initialize UI elements
+                dropZone = document.getElementById('dropZone');
+                fileInfo = document.getElementById('fileInfo');
+                output = document.getElementById('output');
+                statusIndicator = document.getElementById('statusIndicator');
+                runOnceBtn = document.getElementById('runOnceBtn');
+                runLoopBtn = document.getElementById('runLoopBtn');
+                stopBtn = document.getElementById('stopBtn');
+
+                console.log('UI elements initialized');
+
+                // Set up event listeners
+                setupEventListeners();
+
+                // Auto-update stats and initialize
+                setInterval(updateStats, 2000);
+                initializeApp();
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                document.body.innerHTML = '<div style="padding: 20px; color: red;">ERROR: Failed to initialize Tauri. Make sure you are running this through npm run dev</div>';
+            }
+        });
+
+        // Helper function to load a file
+        function loadFile(filePath) {
+            currentFile = filePath;
+            const fileName = filePath.split('\\').pop().split('/').pop();
+            if (fileInfo) {
+                fileInfo.innerHTML = `
+                    <p><strong>📄 ${fileName}</strong></p>
+                    <p style="font-size: 0.85em; opacity: 0.7;">Ready to execute</p>
+                `;
+            }
+            addOutput(`✅ File loaded: ${fileName}`, 'success');
+            if (runOnceBtn) runOnceBtn.disabled = false;
+            if (runLoopBtn) runLoopBtn.disabled = false;
+        }
+
+        // Set up all event listeners
+        function setupEventListeners() {
+            // File selection handler (click to browse)
+            dropZone.addEventListener('click', async () => {
             try {
                 const selected = await open({
                     multiple: false,
@@ -401,63 +469,51 @@ Your programs will learn and improve with each run!
                 });
 
                 if (selected) {
-                    currentFile = selected;
-                    const fileName = selected.split('\\').pop().split('/').pop();
-                    fileInfo.innerHTML = `
-                        <p><strong>📄 ${fileName}</strong></p>
-                        <p style="font-size: 0.85em; opacity: 0.7;">Ready to execute</p>
-                    `;
-                    addOutput(`✅ File loaded: ${fileName}`, 'success');
-                    runOnceBtn.disabled = false;
-                    runLoopBtn.disabled = false;
+                    loadFile(selected);
                 }
             } catch (error) {
                 addOutput(`❌ Error selecting file: ${error}`, 'error');
             }
-        });
+            });
 
-        // Drag and Drop handlers
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-
-        dropZone.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.name.endsWith('.slut')) {
-                    // Get the file path from the dropped file
-                    currentFile = file.path;
-                    fileInfo.innerHTML = `
-                        <p><strong>📄 ${file.name}</strong></p>
-                        <p style="font-size: 0.85em; opacity: 0.7;">Ready to execute</p>
-                    `;
-                    addOutput(`✅ File loaded: ${file.name}`, 'success');
-                    runOnceBtn.disabled = false;
-                    runLoopBtn.disabled = false;
-                } else {
-                    addOutput('❌ Please drop a .slut file', 'error');
+            // Listen for Tauri file drop events
+            listen('tauri://file-drop', (event) => {
+                const files = event.payload;
+                if (files && files.length > 0) {
+                    const filePath = files[0];
+                    if (filePath.endsWith('.slut')) {
+                        loadFile(filePath);
+                        dropZone.classList.remove('drag-over');
+                    } else {
+                        addOutput('❌ Please drop a .slut file', 'error');
+                    }
                 }
-            }
-        });
+            });
+
+            // Visual feedback for drag over
+            listen('tauri://file-drop-hover', () => {
+                dropZone.classList.add('drag-over');
+            });
+
+            // Remove visual feedback when drag leaves
+            listen('tauri://file-drop-cancelled', () => {
+                dropZone.classList.remove('drag-over');
+            });
+        }
 
         // Run once
         async function runOnce() {
+            if (!invoke) {
+                console.error('Tauri API not ready yet');
+                return;
+            }
             if (!currentFile) {
                 addOutput('❌ No file selected', 'error');
                 return;
             }
 
             setRunningState(true);
-            addOutput('▶️ Running program once...', 'info');
+            addOutput(`▶️ Running program: ${currentFile}`, 'info');
 
             try {
                 const result = await invoke('run_file', { filePath: currentFile });
@@ -465,6 +521,7 @@ Your programs will learn and improve with each run!
                 await updateStats();
             } catch (error) {
                 addOutput('❌ Error: ' + error, 'error');
+                console.error('Run error:', error);
             } finally {
                 setRunningState(false);
             }
@@ -472,13 +529,17 @@ Your programs will learn and improve with each run!
 
         // Run until solved
         async function runUntilSolved() {
+            if (!invoke) {
+                console.error('Tauri API not ready yet');
+                return;
+            }
             if (!currentFile) {
                 addOutput('❌ No file selected', 'error');
                 return;
             }
 
             setRunningState(true);
-            addOutput('🔁 Looping until solved (max 50 attempts)...', 'info');
+            addOutput(`🔁 Looping until solved (max 50 attempts): ${currentFile}`, 'info');
 
             try {
                 const result = await invoke('run_until_solved', {
@@ -489,6 +550,7 @@ Your programs will learn and improve with each run!
                 await updateStats();
             } catch (error) {
                 addOutput('❌ Error: ' + error, 'error');
+                console.error('Loop error:', error);
             } finally {
                 setRunningState(false);
             }
@@ -496,6 +558,10 @@ Your programs will learn and improve with each run!
 
         // Stop execution
         async function stopExecution() {
+            if (!invoke) {
+                console.error('Tauri API not ready yet');
+                return;
+            }
             try {
                 await invoke('stop_execution');
                 setRunningState(false);
@@ -507,6 +573,7 @@ Your programs will learn and improve with each run!
 
         // Update stats display
         async function updateStats() {
+            if (!invoke) return; // Silently skip if API not ready
             try {
                 const stats = await invoke('get_cache_stats');
                 document.getElementById('varCount').textContent = stats.variable_count;
@@ -522,6 +589,7 @@ Your programs will learn and improve with each run!
         // Helper functions
         function setRunningState(running) {
             isRunning = running;
+            if (!statusIndicator || !runOnceBtn || !runLoopBtn || !stopBtn) return;
             statusIndicator.className = running ? 'status-indicator status-running' : 'status-indicator status-idle';
             runOnceBtn.disabled = running || !currentFile;
             runLoopBtn.disabled = running || !currentFile;
@@ -529,6 +597,10 @@ Your programs will learn and improve with each run!
         }
 
         function addOutput(text, type = '') {
+            if (!output) {
+                console.log(text); // Fallback to console if output not ready
+                return;
+            }
             const line = document.createElement('div');
             line.className = 'output-line';
             if (type) line.classList.add(`output-${type}`);
@@ -537,15 +609,30 @@ Your programs will learn and improve with each run!
             output.scrollTop = output.scrollHeight;
         }
 
-        // Auto-update stats every 2 seconds
-        setInterval(updateStats, 2000);
+        // Initialize and auto-load test file
+        async function initializeApp() {
+            console.log('initializeApp called');
+            setTimeout(async () => {
+                console.log('Initializing app...');
+                addOutput('System initialized', 'success');
 
-        // Welcome message
-        setTimeout(() => {
-            addOutput('System initialized', 'success');
-            addOutput('Waiting for file input...', 'info');
-            updateStats();
-        }, 500);
+                try {
+                    // Hard-code full path for now (until Rust rebuild)
+                    const fullPath = 'C:\\Users\\phone\\Desktop\\projects\\katie quantum\\rust_type_analysis\\quark d Rust\\quantum_slut_transpiler_b\\test_while_loop.slut';
+
+                    console.log('Loading file:', fullPath);
+                    loadFile(fullPath);
+                    addOutput(`📂 Auto-loaded test_while_loop.slut for testing`, 'info');
+                    addOutput('You can now click Run Once or Loop Until Solved!', 'info');
+                } catch (error) {
+                    console.error('Error loading file:', error);
+                    addOutput(`⚠️ Could not auto-load test file: ${error}`, 'error');
+                    addOutput('Please drag and drop a .slut file to begin', 'info');
+                }
+
+                updateStats();
+            }, 500);
+        }
     </script>
 </body>
 </html>

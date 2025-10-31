@@ -158,3 +158,11 @@ pub fn reset_transpiler(state: State<'_, AppState>) -> Result<(), String> {
 
     Ok(())
 }
+
+/// Command to get the current working directory
+#[tauri::command]
+pub fn get_working_directory() -> Result<String, String> {
+    std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| format!("Failed to get working directory: {}", e))
+}

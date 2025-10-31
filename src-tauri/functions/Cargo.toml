@@ -1,0 +1,10 @@
+[package]
+name = "quantum_functions"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "quantum_functions"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]

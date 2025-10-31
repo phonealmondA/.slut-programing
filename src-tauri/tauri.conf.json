@@ -3,7 +3,8 @@
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
     "devPath": "../ui",
-    "distDir": "../ui"
+    "distDir": "../ui",
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "Quantum Consciousness IDE",
@@ -17,7 +18,8 @@
         "scope": ["**"]
       },
       "dialog": {
-        "all": true
+        "all": true,
+        "open": true
       },
       "shell": {
         "open": true
@@ -35,7 +37,8 @@
         "width": 1200,
         "height": 800,
         "center": true,
-        "resizable": true
+        "resizable": true,
+        "fileDropEnabled": true
       }
     ]
   }

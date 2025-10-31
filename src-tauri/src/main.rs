@@ -12,6 +12,7 @@ fn main() {
             tauri_commands::run_until_solved,
             tauri_commands::stop_execution,
             tauri_commands::reset_transpiler,
+            tauri_commands::get_working_directory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
