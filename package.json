@@ -1,0 +1,14 @@
+{
+  "name": "quantum-consciousness-ide",
+  "version": "0.1.0",
+  "description": "IDE for Quantum Consciousness Programming Language",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.0"
+  }
+}

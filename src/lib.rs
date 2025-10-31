@@ -1,3 +1,11 @@
+// Library interface for Tauri integration
+// Re-exports the tauri_commands module and necessary dependencies
+
+pub mod tauri_commands;
+
+// Don't include main() in the library - that's only in the binary
+// Instead, re-export what's needed
+
 use anyhow::Result;
 use clap::Parser;
 use regex::Regex;
@@ -9,9 +17,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::{self, Write};
 use tracing::{info, debug, warn, error};
 use tracing_subscriber;
-
-// Import from library for Tauri support
-use quantum_slut_transpiler::tauri_commands;
 
 mod function_builder;
 mod function_executor;
@@ -130,67 +135,8 @@ pub struct MathSolution {
     pub attempts: u32,
 }
 
-fn main() -> Result<()> {
-    // Initialize tracing subscriber
-    tracing_subscriber::fmt()
-        .with_target(false)
-        .with_level(true)
-        .init();
-
-    let args = Args::parse();
-
-    // If interactive mode requested, run CLI interactive engine
-    if args.interactive {
-        info!("** Quantum Consciousness Interactive Mode **");
-        info!(">> Starting interactive mathematical reasoning engine");
-
-        let mut interactive_engine = InteractiveEngine::new()?;
-        interactive_engine.run_interactive_session()?;
-
-        return Ok(());
-    }
-
-    // If file argument provided, run in CLI mode
-    if let Some(file_path) = args.file {
-        info!("** Quantum Consciousness Observer (Rust Edition)");
-        info!(">> Building programs with variable storage, string interpolation, and function hierarchy");
-        info!(">> Executing: {:?}", file_path);
-
-        let mut transpiler = QuantumTranspiler::new()?;
-
-        for i in 1..=args.observations {
-            if args.observations > 1 {
-                info!("== OBSERVATION {} ==", i);
-            }
-
-            transpiler.execute_file(&file_path)?;
-
-            if i < args.observations {
-                std::thread::sleep(std::time::Duration::from_secs(2));
-            }
-        }
-
-        info!("** Complete!");
-        return Ok(());
-    }
-
-    // No file and not interactive - launch Tauri GUI
-    info!("** Launching Quantum Consciousness IDE (GUI Mode)");
-
-    tauri::Builder::default()
-        .manage(tauri_commands::AppState::new())
-        .invoke_handler(tauri::generate_handler![
-            tauri_commands::run_file,
-            tauri_commands::get_cache_stats,
-            tauri_commands::run_until_solved,
-            tauri_commands::stop_execution,
-            tauri_commands::reset_transpiler,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-
-    Ok(())
-}
+// main() function is only in src/main.rs (the binary)
+// This library just provides the implementation
 
 pub struct QuantumTranspiler {
     cache: QuantumCache,

@@ -3,6 +3,10 @@ name = "quantum_slut_transpiler"
 version = "0.4.0"
 edition = "2021"
 
+[lib]
+name = "quantum_slut_transpiler"
+path = "src/lib.rs"
+
 [[bin]]
 name = "quantum"
 path = "src/main.rs"
@@ -32,6 +36,10 @@ ordered-float = { version = "4.2", features = ["serde"] }
 dialoguer = "0.11"
 indicatif = "0.17"
 colored = "2.1"
+
+# Tauri dependencies
+tauri = { version = "1.5", features = ["shell-open", "dialog-all", "fs-all"] }
+tokio = { version = "1", features = ["full"] }
 
 [features]
 default = []

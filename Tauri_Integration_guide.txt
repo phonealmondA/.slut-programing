@@ -1,0 +1,260 @@
+# Integrating Your Quantum Consciousness Code with Tauri
+
+After running setup_tauri.bat, follow these steps to connect your existing code to the Tauri UI:
+
+## Step 1: Update Cargo.toml
+
+Add these dependencies to your `Cargo.toml` under `[dependencies]`:
+
+```toml
+tauri = { version = "1.5", features = ["shell-open"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+```
+
+## Step 2: Create src/tauri_commands.rs
+
+This file will expose your Rust functions to the JavaScript frontend:
+
+```rust
+use tauri::State;
+use std::sync::Mutex;
+use crate::QuantumTranspiler;
+
+// Shared state that the UI can access
+pub struct AppState {
+    pub transpiler: Mutex<Option<QuantumTranspiler>>,
+    pub is_running: Mutex<bool>,
+    pub current_file: Mutex<Option<String>>,
+}
+
+// Command to run a .slut file once
+#[tauri::command]
+pub async fn run_file(file_path: String, state: State<'_, AppState>) -> Result<String, String> {
+    let mut transpiler = state.transpiler.lock().unwrap();
+    
+    if transpiler.is_none() {
+        *transpiler = Some(QuantumTranspiler::new().map_err(|e| e.to_string())?);
+    }
+    
+    let trans = transpiler.as_mut().unwrap();
+    trans.execute_file(&std::path::PathBuf::from(&file_path))
+        .map_err(|e| e.to_string())?;
+    
+    Ok("Execution complete".to_string())
+}
+
+// Command to get current cache stats
+#[tauri::command]
+pub fn get_cache_stats(state: State<'_, AppState>) -> Result<CacheStats, String> {
+    let transpiler = state.transpiler.lock().unwrap();
+    
+    if let Some(trans) = transpiler.as_ref() {
+        Ok(CacheStats {
+            variable_count: trans.variable_manager.get_all_variables().len(),
+            solution_count: trans.math_engine.get_solutions().len(),
+            last_accuracy: 0.0, // You'll need to track this
+        })
+    } else {
+        Ok(CacheStats::default())
+    }
+}
+
+#[derive(serde::Serialize, Default)]
+pub struct CacheStats {
+    pub variable_count: usize,
+    pub solution_count: usize,
+    pub last_accuracy: f64,
+}
+
+// Command to run until solved
+#[tauri::command]
+pub async fn run_until_solved(
+    file_path: String, 
+    max_attempts: u32,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    *state.is_running.lock().unwrap() = true;
+    
+    let mut attempts = 0;
+    let mut best_accuracy = 0.0;
+    
+    while attempts < max_attempts && best_accuracy < 100.0 {
+        // Check if user stopped it
+        if !*state.is_running.lock().unwrap() {
+            return Ok(format!("Stopped after {} attempts", attempts));
+        }
+        
+        // Run the file
+        run_file(file_path.clone(), state.clone()).await?;
+        
+        // Get updated stats
+        let stats = get_cache_stats(state.clone())?;
+        best_accuracy = stats.last_accuracy;
+        
+        attempts += 1;
+        
+        // Small delay between attempts
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    }
+    
+    Ok(format!("Completed {} attempts. Best accuracy: {}%", attempts, best_accuracy))
+}
+
+// Command to stop running
+#[tauri::command]
+pub fn stop_execution(state: State<'_, AppState>) -> Result<(), String> {
+    *state.is_running.lock().unwrap() = false;
+    Ok(())
+}
+```
+
+## Step 3: Update src/main.rs
+
+Change your main function to initialize Tauri:
+
+```rust
+mod tauri_commands;
+
+fn main() {
+    // Keep your existing CLI functionality
+    let args = Args::parse();
+    
+    // If running in CLI mode (file argument provided and not in Tauri context)
+    if args.file.is_some() && !cfg!(feature = "tauri") {
+        // Your existing CLI code here
+        return;
+    }
+    
+    // Otherwise, start Tauri GUI
+    tauri::Builder::default()
+        .manage(tauri_commands::AppState {
+            transpiler: Mutex::new(None),
+            is_running: Mutex::new(false),
+            current_file: Mutex::new(None),
+        })
+        .invoke_handler(tauri::generate_handler![
+            tauri_commands::run_file,
+            tauri_commands::get_cache_stats,
+            tauri_commands::run_until_solved,
+            tauri_commands::stop_execution,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+```
+
+## Step 4: Update ui/index.html JavaScript
+
+Replace the placeholder functions with actual Tauri API calls:
+
+```javascript
+const { invoke } = window.__TAURI__.tauri;
+
+let currentFile = null;
+
+// Handle file drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.slut')) {
+        currentFile = file.path;
+        document.getElementById('fileInfo').innerHTML = `<p>📄 ${file.name}</p>`;
+    }
+});
+
+dropZone.addEventListener('dragover', (e) => e.preventDefault());
+
+// Run once
+async function runOnce() {
+    if (!currentFile) {
+        addOutput('❌ No file selected');
+        return;
+    }
+    
+    addOutput('▶️ Running program...');
+    try {
+        const result = await invoke('run_file', { filePath: currentFile });
+        addOutput('✅ ' + result);
+        updateStats();
+    } catch (error) {
+        addOutput('❌ Error: ' + error);
+    }
+}
+
+// Run until solved
+async function runUntilSolved() {
+    if (!currentFile) {
+        addOutput('❌ No file selected');
+        return;
+    }
+    
+    addOutput('🔁 Looping until solved (max 50 attempts)...');
+    try {
+        const result = await invoke('run_until_solved', { 
+            filePath: currentFile,
+            maxAttempts: 50 
+        });
+        addOutput('🎉 ' + result);
+        updateStats();
+    } catch (error) {
+        addOutput('❌ Error: ' + error);
+    }
+}
+
+// Update stats display
+async function updateStats() {
+    try {
+        const stats = await invoke('get_cache_stats');
+        document.getElementById('varCount').textContent = stats.variable_count;
+        document.getElementById('solCount').textContent = stats.solution_count;
+        document.getElementById('accuracy').textContent = stats.last_accuracy.toFixed(1) + '%';
+    } catch (error) {
+        console.error('Failed to update stats:', error);
+    }
+}
+
+// Add output to console
+function addOutput(text) {
+    const output = document.getElementById('output');
+    output.innerHTML += '\n' + text;
+    output.scrollTop = output.scrollHeight;
+}
+
+// Auto-update stats every 2 seconds
+setInterval(updateStats, 2000);
+```
+
+## Step 5: Test It!
+
+1. Run: `npm run dev`
+2. The Tauri window should open with your UI
+3. Drag a .slut file into the drop zone
+4. Click "Run Once" or "Loop Until Solved"
+5. Watch the console output and stats update!
+
+## Troubleshooting
+
+**If Tauri window doesn't open:**
+- Check that all dependencies installed correctly
+- Look at terminal output for errors
+- Make sure ui/index.html exists
+
+**If commands don't work:**
+- Check that tauri_commands.rs is in src/
+- Verify you added it to main.rs with `mod tauri_commands;`
+- Check browser console (F12) for JavaScript errors
+
+**If file drag-drop doesn't work:**
+- Make sure Tauri has file system permissions
+- Check tauri.conf.json has the right allowlist settings
+
+## Next Steps
+
+Once basic integration works, you can add:
+- Real-time console streaming (using Tauri events)
+- Code editor with syntax highlighting
+- Visual memory graph
+- Progress bars during loops
+- Sound effects when solved!

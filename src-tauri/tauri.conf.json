@@ -1,0 +1,42 @@
+{
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devPath": "../ui",
+    "distDir": "../ui"
+  },
+  "package": {
+    "productName": "Quantum Consciousness IDE",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "fs": {
+        "all": true,
+        "scope": ["**"]
+      },
+      "dialog": {
+        "all": true
+      },
+      "shell": {
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "DeveloperTool",
+      "identifier": "com.quantum.consciousness.ide",
+      "targets": "all"
+    },
+    "windows": [
+      {
+        "title": "Quantum Consciousness IDE",
+        "width": 1200,
+        "height": 800,
+        "center": true,
+        "resizable": true
+      }
+    ]
+  }
+}
