@@ -337,10 +337,11 @@ impl VariableManager {
 
         match count {
             1 => {
-                // Take middle value
-                let idx = len / 2;
+                // For single selection, pick the largest value to maximize potential
+                // This helps build bigger numbers through multiplication/exponentiation
+                let idx = len - 1; // Pick the largest available value
                 selected.push(available[idx]);
-                println!("      + Selected middle value: {}", available[idx]);
+                println!("      + Selected largest value to maximize potential: {}", available[idx]);
             }
             2 => {
                 // Take smallest and largest for maximum diversity

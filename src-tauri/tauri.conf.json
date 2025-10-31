@@ -34,8 +34,8 @@
     "windows": [
       {
         "title": "Quantum Consciousness IDE",
-        "width": 1200,
-        "height": 800,
+        "width": 1600,
+        "height": 1000,
         "center": true,
         "resizable": true,
         "fileDropEnabled": true

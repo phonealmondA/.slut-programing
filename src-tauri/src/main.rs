@@ -13,6 +13,8 @@ fn main() {
             tauri_commands::stop_execution,
             tauri_commands::reset_transpiler,
             tauri_commands::get_working_directory,
+            tauri_commands::get_cache_history,
+            tauri_commands::clear_memory_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,10 +3,9 @@
         speak("=== Interactive Math Solver ===")
         speak("")
         
-        targetNum <> 777
-        firstInput <> 2
-        secondInput <> 5
-        thirdInput <> 5
+        targetNum <> 1250
+        firstInput <> 3
+        secondInput <> 7
         
 		speak("")
         speak("Searching for: ~targetNum~ using [~firstInput~, ~secondInput~, ?]")

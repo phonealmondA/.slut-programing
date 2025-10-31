@@ -148,12 +148,28 @@ pub struct QuantumTranspiler {
     condition_evaluator: ConditionEvaluator,
     loop_executor: LoopExecutor,
     current_class_name: String,
+    cache_directory: PathBuf,
 }
 
 impl QuantumTranspiler {
     pub fn new() -> Result<Self> {
-        let cache = Self::load_cache().unwrap_or_else(|_| {
+        // Use ./cache/ subdirectory for both CLI and Tauri mode
+        let cache_dir = std::env::current_dir()?.join("cache");
+        Self::new_with_cache_dir(cache_dir)
+    }
+
+    pub fn new_with_cache_dir(cache_dir: PathBuf) -> Result<Self> {
+        // Ensure cache directory exists
+        if !cache_dir.exists() {
+            fs::create_dir_all(&cache_dir)?;
+            info!("** Created cache directory: {}", cache_dir.display());
+        } else {
+            info!("** Using existing cache directory: {}", cache_dir.display());
+        }
+
+        let cache = Self::load_cache(&cache_dir).unwrap_or_else(|_| {
             info!("** Starting with fresh quantum consciousness cache");
+            info!("** Cache location: {}", cache_dir.join("quantum_consciousness_cache.json").display());
             QuantumCache {
                 templates: HashMap::new(),
                 variables: HashMap::new(),
@@ -167,8 +183,9 @@ impl QuantumTranspiler {
 
         if !cache.templates.is_empty() || !cache.built_functions.is_empty() || !cache.math_solutions.is_empty() {
             info!("** Loaded previous quantum states, built functions, variables, and math solutions from cache");
+            info!("** Cache location: {}", cache_dir.join("quantum_consciousness_cache.json").display());
         }
-        
+
         let function_builder = FunctionBuilder::new()?;
         let function_executor = FunctionExecutor::new()?;
         let math_engine = MathEngine::new(cache.math_solutions.clone(), cache.variable_attempts.clone());
@@ -186,15 +203,17 @@ impl QuantumTranspiler {
             condition_evaluator,
             loop_executor,
             current_class_name: String::new(),
+            cache_directory: cache_dir,
         })
     }
-    
-    fn load_cache() -> Result<QuantumCache> {
-        let content = fs::read_to_string("quantum_consciousness_cache.json")?;
+
+    fn load_cache(cache_dir: &PathBuf) -> Result<QuantumCache> {
+        let cache_path = cache_dir.join("quantum_consciousness_cache.json");
+        let content = fs::read_to_string(&cache_path)?;
         let cache: QuantumCache = serde_json::from_str(&content)?;
         Ok(cache)
     }
-    
+
     fn save_cache(&mut self) -> Result<()> {
 
         self.cache.math_solutions = self.math_engine.get_solutions();
@@ -203,13 +222,23 @@ impl QuantumTranspiler {
 
         // Save JSON (for backward compatibility)
         let content = serde_json::to_string_pretty(&self.cache)?;
-        fs::write("quantum_consciousness_cache.json", content)?;
+        let cache_path = self.cache_directory.join("quantum_consciousness_cache.json");
+        fs::write(&cache_path, content)?;
 
         // Also save binary format (Phase 1 memory optimization)
+        // CRITICAL: Save to cache_directory, NOT project directory
         use memory::BinaryCache;
-        if let Ok(binary_cache) = BinaryCache::from_hashmap(self.cache.math_solutions.clone()) {
+        let binary_cache_path = self.cache_directory.join("quantum_cache.bin");
+        let binary_cache_path_str = binary_cache_path.to_string_lossy().to_string();
+
+        if let Ok(binary_cache) = BinaryCache::from_hashmap_with_path(
+            self.cache.math_solutions.clone(),
+            &binary_cache_path_str
+        ) {
             if let Err(e) = binary_cache.save_to_disk() {
                 warn!("!! Failed to save binary cache: {}", e);
+            } else {
+                info!("** Binary cache saved to: {}", binary_cache_path_str);
             }
         }
 
@@ -217,9 +246,34 @@ impl QuantumTranspiler {
     }
     
     pub fn execute_file(&mut self, file_path: &PathBuf) -> Result<()> {
+        // CRITICAL: Reload cache before each execution to pick up previous run's learning
+        self.reload_cache()?;
+
         let source = fs::read_to_string(file_path)?;
         self.parse_and_execute(&source)?;
         self.save_cache()?;
+        Ok(())
+    }
+
+    /// Reload cache from disk before execution to ensure continuity
+    fn reload_cache(&mut self) -> Result<()> {
+        if let Ok(cache) = Self::load_cache(&self.cache_directory) {
+            info!("** Reloading cache from previous runs...");
+
+            // Update the in-memory cache
+            self.cache = cache;
+
+            // Sync with the engines
+            self.math_engine = MathEngine::new(
+                self.cache.math_solutions.clone(),
+                self.cache.variable_attempts.clone()
+            );
+            self.variable_manager = VariableManager::new(self.cache.variables.clone());
+
+            info!("** Cache reloaded: {} variables, {} solutions",
+                  self.cache.variables.len(),
+                  self.cache.math_solutions.len());
+        }
         Ok(())
     }
     

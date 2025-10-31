@@ -31,7 +31,14 @@ impl BinaryCache {
     pub fn from_hashmap(
         math_solutions: std::collections::HashMap<String, MathSolution>
     ) -> Result<Self> {
-        let mut binary_cache = Self::new("quantum_cache.bin")?;
+        Self::from_hashmap_with_path(math_solutions, "quantum_cache.bin")
+    }
+
+    pub fn from_hashmap_with_path(
+        math_solutions: std::collections::HashMap<String, MathSolution>,
+        file_path: &str
+    ) -> Result<Self> {
+        let mut binary_cache = Self::new(file_path)?;
 
         println!(">> Converting {} solutions to binary format...", math_solutions.len());
         let start = std::time::Instant::now();

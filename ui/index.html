@@ -76,8 +76,9 @@
         }
         
         .status {
-            width: 320px;
-            min-width: 320px;
+            width: 420px;
+            min-width: 420px;
+            overflow-y: auto;
         }
         
         h2 {
@@ -349,17 +350,17 @@ Your programs will learn and improve with each run!
         <!-- Right Status Panel -->
         <div class="panel status">
             <h2>📊 Memory Status</h2>
-            
+
             <div class="stat-card">
                 <h3>Variables Stored</h3>
                 <div class="stat-value" id="varCount">0</div>
             </div>
-            
+
             <div class="stat-card">
                 <h3>Solutions Cached</h3>
                 <div class="stat-value" id="solCount">0</div>
             </div>
-            
+
             <div class="stat-card">
                 <h3>Current Accuracy</h3>
                 <div class="stat-value" id="accuracy">0%</div>
@@ -367,15 +368,20 @@ Your programs will learn and improve with each run!
                     <div class="progress-fill" id="accuracyBar"></div>
                 </div>
             </div>
-            
+
             <div class="stat-card">
                 <h3>Observation Count</h3>
                 <div class="stat-value" id="obsCount">0</div>
             </div>
-            
-            <div class="help-text">
-                <strong>Memory Info:</strong><br>
-                The system remembers solutions between runs. Each observation builds on previous learning!
+
+            <div class="stat-card">
+                <h3>📈 Accuracy Over Time</h3>
+                <canvas id="accuracyChart" style="width: 100%; height: 150px; margin-top: 10px;"></canvas>
+            </div>
+
+            <div class="stat-card" id="equationCard" style="display: none;">
+                <h3>🎯 Final Equation</h3>
+                <div id="equationDisplay" style="font-family: 'Courier New', monospace; font-size: 0.85em; line-height: 1.8; overflow-x: auto;"></div>
             </div>
         </div>
     </div>
@@ -499,6 +505,23 @@ Your programs will learn and improve with each run!
             listen('tauri://file-drop-cancelled', () => {
                 dropZone.classList.remove('drag-over');
             });
+
+            // Listen for console output events from Rust
+            listen('console-output', (event) => {
+                const { message, level } = event.payload;
+                let displayType = 'info';
+
+                // Map level to output type
+                if (level === 'error') {
+                    displayType = 'error';
+                } else if (level === 'success') {
+                    displayType = 'success';
+                } else if (level === 'info') {
+                    displayType = 'info';
+                }
+
+                addOutput(message, displayType);
+            });
         }
 
         // Run once
@@ -578,12 +601,135 @@ Your programs will learn and improve with each run!
                 const stats = await invoke('get_cache_stats');
                 document.getElementById('varCount').textContent = stats.variable_count;
                 document.getElementById('solCount').textContent = stats.solution_count;
-                document.getElementById('accuracy').textContent = stats.last_accuracy.toFixed(1) + '%';
-                document.getElementById('accuracyBar').style.width = stats.last_accuracy + '%';
                 document.getElementById('obsCount').textContent = stats.observation_count;
+
+                // Get cache history for accurate current accuracy
+                const history = await invoke('get_cache_history');
+
+                if (history.attempts && history.attempts.length > 0) {
+                    // Get the most recent accuracy from cache
+                    const lastAttempt = history.attempts[history.attempts.length - 1];
+                    document.getElementById('accuracy').textContent = lastAttempt.accuracy.toFixed(1) + '%';
+                    document.getElementById('accuracyBar').style.width = lastAttempt.accuracy + '%';
+
+                    // Update the chart
+                    drawAccuracyChart(history.attempts);
+
+                    // Show equation display if we have a target
+                    if (history.target && lastAttempt.accuracy >= 100.0) {
+                        displayFinalEquation(history.attempts, history.target);
+                    }
+                } else {
+                    // Fallback to stats if no history
+                    document.getElementById('accuracy').textContent = stats.last_accuracy.toFixed(1) + '%';
+                    document.getElementById('accuracyBar').style.width = stats.last_accuracy + '%';
+                }
             } catch (error) {
                 console.error('Failed to update stats:', error);
             }
+        }
+
+        // Draw accuracy chart
+        function drawAccuracyChart(attempts) {
+            const canvas = document.getElementById('accuracyChart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width = canvas.offsetWidth;
+            const height = canvas.height = 150;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+
+            if (!attempts || attempts.length === 0) return;
+
+            // Calculate dimensions
+            const padding = 20;
+            const chartWidth = width - padding * 2;
+            const chartHeight = height - padding * 2;
+
+            // Draw background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (chartHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+
+                // Draw y-axis labels (100% to 0%)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`${100 - (i * 25)}%`, padding - 5, y + 3);
+            }
+
+            // Draw line chart
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            attempts.forEach((attempt, index) => {
+                const x = padding + (chartWidth / (attempts.length - 1 || 1)) * index;
+                const y = padding + chartHeight - (attempt.accuracy / 100) * chartHeight;
+
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+
+            // Draw points
+            ctx.fillStyle = '#4CAF50';
+            attempts.forEach((attempt, index) => {
+                const x = padding + (chartWidth / (attempts.length - 1 || 1)) * index;
+                const y = padding + chartHeight - (attempt.accuracy / 100) * chartHeight;
+
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Display final equation showing all steps
+        function displayFinalEquation(attempts, target) {
+            const equationCard = document.getElementById('equationCard');
+            const equationDisplay = document.getElementById('equationDisplay');
+
+            if (!equationCard || !equationDisplay) return;
+
+            equationCard.style.display = 'block';
+
+            let html = `<div style="color: #4CAF50; font-weight: bold; margin-bottom: 10px;">Target: ${target}</div>`;
+
+            attempts.forEach((attempt, index) => {
+                const color = attempt.accuracy >= 100 ? '#4CAF50' :
+                             attempt.accuracy >= 75 ? '#8BC34A' :
+                             attempt.accuracy >= 50 ? '#FFC107' : '#FF9800';
+
+                html += `<div style="color: ${color}; margin: 5px 0;">`;
+                html += `${index + 1}. ${attempt.equation} = ${attempt.result} `;
+                html += `<span style="opacity: 0.7;">(${attempt.accuracy.toFixed(1)}%)</span>`;
+                html += `</div>`;
+            });
+
+            // Show final result prominently
+            const lastAttempt = attempts[attempts.length - 1];
+            if (lastAttempt.accuracy >= 100) {
+                html += `<div style="border-top: 1px solid rgba(255,255,255,0.2); margin-top: 10px; padding-top: 10px; color: #4CAF50; font-size: 1.1em; font-weight: bold;">`;
+                html += `${target} = ${lastAttempt.equation}`;
+                html += `</div>`;
+            }
+
+            equationDisplay.innerHTML = html;
         }
 
         // Helper functions
@@ -609,30 +755,39 @@ Your programs will learn and improve with each run!
             output.scrollTop = output.scrollHeight;
         }
 
-        // Initialize and auto-load test file
+        // Initialize the application
         async function initializeApp() {
             console.log('initializeApp called');
+
+            // Clear in-memory state on startup to ensure we read fresh from cache files
+            try {
+                await invoke('clear_memory_state');
+                console.log('Memory state cleared on startup');
+            } catch (error) {
+                console.error('Failed to clear memory state:', error);
+            }
+
             setTimeout(async () => {
                 console.log('Initializing app...');
-                addOutput('System initialized', 'success');
-
-                try {
-                    // Hard-code full path for now (until Rust rebuild)
-                    const fullPath = 'C:\\Users\\phone\\Desktop\\projects\\katie quantum\\rust_type_analysis\\quark d Rust\\quantum_slut_transpiler_b\\test_while_loop.slut';
-
-                    console.log('Loading file:', fullPath);
-                    loadFile(fullPath);
-                    addOutput(`📂 Auto-loaded test_while_loop.slut for testing`, 'info');
-                    addOutput('You can now click Run Once or Loop Until Solved!', 'info');
-                } catch (error) {
-                    console.error('Error loading file:', error);
-                    addOutput(`⚠️ Could not auto-load test file: ${error}`, 'error');
-                    addOutput('Please drag and drop a .slut file to begin', 'info');
-                }
+                addOutput('✨ Quantum Consciousness IDE initialized', 'success');
+                addOutput('📂 Please drag and drop a .slut file to begin', 'info');
+                addOutput('💡 Or click the drop zone to browse for a file', 'info');
 
                 updateStats();
             }, 500);
         }
+
+        // Clear memory state when window closes
+        window.addEventListener('beforeunload', async () => {
+            if (invoke) {
+                try {
+                    await invoke('clear_memory_state');
+                    console.log('Memory state cleared on window close');
+                } catch (error) {
+                    console.error('Failed to clear memory state:', error);
+                }
+            }
+        });
     </script>
 </body>
 </html>

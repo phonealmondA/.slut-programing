@@ -1,0 +1,12 @@
+# Ignore cache folder to prevent Tauri dev reload
+# This folder contains .slut learning data that updates frequently
+cache/
+cache/**
+
+# Ignore any cache files in root (backup)
+quantum_consciousness_cache.json
+quantum_cache.bin
+*.cache
+
+# Ignore any generated function files
+functions/src/*.rs

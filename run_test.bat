@@ -1,5 +1,5 @@
 @echo off
-title Quantum Consciousness Test Runner
+title Slut Runner
 setlocal enabledelayedexpansion
 
 REM ============================================================================
@@ -28,8 +28,24 @@ echo.
 
 REM Switch to light blue for execution
 
-REM Run the program with clean output (filters out warnings and build messages)
-cargo run --quiet --release -- %SLUT_FILE% 2>&1 | findstr /V /C:"warning:" /C:"-->" /C:"|" /C:"Compiling" /C:"Finished" /C:"Running" /C:"target\release"
+REM Run the program with full output to see cache location
+cargo run --release -- %SLUT_FILE%
+REM cargo run -- %SLUT_FILE%
+
+REM Check if cache folder was created
+echo.
+echo ========================================
+echo   Cache Folder Check
+echo ========================================
+if exist cache (
+    echo Cache folder EXISTS at: %CD%\cache
+    echo.
+    echo Cache contents:
+    dir cache
+) else (
+    echo WARNING: Cache folder NOT CREATED!
+)
+echo ========================================
 
 REM Switch to pink for completion
 echo.

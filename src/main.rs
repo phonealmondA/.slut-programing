@@ -7,11 +7,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::{self, Write};
-use tracing::{info, debug, warn, error};
+use tracing::{info, warn};
 use tracing_subscriber;
-
-// Import from library for Tauri support
-use quantum_slut_transpiler::tauri_commands;
 
 mod function_builder;
 mod function_executor;
@@ -174,22 +171,16 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // No file and not interactive - launch Tauri GUI
-    info!("** Launching Quantum Consciousness IDE (GUI Mode)");
+    // No file and not interactive - show usage
+    eprintln!("Error: No file specified");
+    eprintln!();
+    eprintln!("Usage:");
+    eprintln!("  quantum <file.slut>              Run a .slut file");
+    eprintln!("  quantum --interactive            Start interactive mode");
+    eprintln!();
+    eprintln!("To run the GUI, use: cd src-tauri && cargo tauri dev");
 
-    tauri::Builder::default()
-        .manage(tauri_commands::AppState::new())
-        .invoke_handler(tauri::generate_handler![
-            tauri_commands::run_file,
-            tauri_commands::get_cache_stats,
-            tauri_commands::run_until_solved,
-            tauri_commands::stop_execution,
-            tauri_commands::reset_transpiler,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-
-    Ok(())
+    std::process::exit(1);
 }
 
 pub struct QuantumTranspiler {
@@ -206,8 +197,18 @@ pub struct QuantumTranspiler {
 
 impl QuantumTranspiler {
     pub fn new() -> Result<Self> {
+        // Ensure cache directory exists at initialization
+        let cache_dir = PathBuf::from("cache");
+        if !cache_dir.exists() {
+            fs::create_dir_all(&cache_dir)?;
+            info!("** Created cache directory: {}", cache_dir.display());
+        } else {
+            info!("** Using existing cache directory: {}", cache_dir.display());
+        }
+
         let cache = Self::load_cache().unwrap_or_else(|_| {
             info!("** Starting with fresh quantum consciousness cache");
+            info!("** Cache location: cache/quantum_consciousness_cache.json");
             QuantumCache {
                 templates: HashMap::new(),
                 variables: HashMap::new(),
@@ -244,26 +245,44 @@ impl QuantumTranspiler {
     }
     
     fn load_cache() -> Result<QuantumCache> {
-        let content = fs::read_to_string("quantum_consciousness_cache.json")?;
+        // Load from ./cache/ directory
+        let cache_path = PathBuf::from("cache").join("quantum_consciousness_cache.json");
+        let content = fs::read_to_string(&cache_path)?;
         let cache: QuantumCache = serde_json::from_str(&content)?;
         Ok(cache)
     }
-    
+
     fn save_cache(&mut self) -> Result<()> {
 
         self.cache.math_solutions = self.math_engine.get_solutions();
         self.cache.variable_attempts = self.math_engine.get_variable_attempts();
         self.cache.variables = self.variable_manager.get_all_variables();
 
-        // Save JSON (for backward compatibility)
-        let content = serde_json::to_string_pretty(&self.cache)?;
-        fs::write("quantum_consciousness_cache.json", content)?;
+        // Ensure cache directory exists
+        let cache_dir = PathBuf::from("cache");
+        if !cache_dir.exists() {
+            fs::create_dir_all(&cache_dir)?;
+            info!("** Created cache directory: {}", cache_dir.display());
+        }
 
-        // Also save binary format (Phase 1 memory optimization)
+        // Save JSON to ./cache/ directory
+        let content = serde_json::to_string_pretty(&self.cache)?;
+        let cache_path = cache_dir.join("quantum_consciousness_cache.json");
+        fs::write(&cache_path, content)?;
+
+        // Also save binary format to ./cache/ directory
         use memory::BinaryCache;
-        if let Ok(binary_cache) = BinaryCache::from_hashmap(self.cache.math_solutions.clone()) {
+        let binary_cache_path = cache_dir.join("quantum_cache.bin");
+        let binary_cache_path_str = binary_cache_path.to_string_lossy().to_string();
+
+        if let Ok(binary_cache) = BinaryCache::from_hashmap_with_path(
+            self.cache.math_solutions.clone(),
+            &binary_cache_path_str
+        ) {
             if let Err(e) = binary_cache.save_to_disk() {
                 warn!("!! Failed to save binary cache: {}", e);
+            } else {
+                info!("** Binary cache saved to: {}", binary_cache_path_str);
             }
         }
 
@@ -271,9 +290,34 @@ impl QuantumTranspiler {
     }
     
     pub fn execute_file(&mut self, file_path: &PathBuf) -> Result<()> {
+        // CRITICAL: Reload cache before each execution to pick up previous run's learning
+        self.reload_cache()?;
+
         let source = fs::read_to_string(file_path)?;
         self.parse_and_execute(&source)?;
         self.save_cache()?;
+        Ok(())
+    }
+
+    /// Reload cache from disk before execution to ensure continuity
+    fn reload_cache(&mut self) -> Result<()> {
+        if let Ok(cache) = Self::load_cache() {
+            info!("** Reloading cache from previous runs...");
+
+            // Update the in-memory cache
+            self.cache = cache;
+
+            // Sync with the engines
+            self.math_engine = MathEngine::new(
+                self.cache.math_solutions.clone(),
+                self.cache.variable_attempts.clone()
+            );
+            self.variable_manager = VariableManager::new(self.cache.variables.clone());
+
+            info!("** Cache reloaded: {} variables, {} solutions",
+                  self.cache.variables.len(),
+                  self.cache.math_solutions.len());
+        }
         Ok(())
     }
     
@@ -1153,7 +1197,7 @@ impl QuantumTranspiler {
         // Execute the loop manually to avoid borrow checker issues
         self.loop_executor.loop_depth += 1;
 
-        for i in 0..count {
+        for _i in 0..count {
             self.loop_executor.should_continue = false;
 
             // Execute body
