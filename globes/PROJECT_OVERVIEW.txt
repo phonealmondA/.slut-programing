@@ -1,0 +1,38 @@
+PROJECT: OOP Sphere Visualizer - Theia IDE Extension
+
+CORE CONCEPT:
+3D spherical code visualization to teach Object-Oriented Programming's four pillars
+through spatial/visual learning in a real IDE environment.
+
+CURRENT STATE:
+- Working HTML/Three.js prototype with sphere visualization
+- Code parsed into nodes on sphere surface
+- Interactive node expansion, drag, zoom, rotation
+- Python execution with output rings
+- Data flow connections between nodes
+
+TARGET PLATFORM:
+Theia IDE Extension (chosen over VS Code for deeper customization)
+
+OOP PILLARS MAPPING:
+1. Encapsulation → Nodes (classes/objects as spheres)
+2. Inheritance → Connecting lines (parent-child relationships) 
+3. Polymorphism → Node colors/shapes (interface implementations)
+4. Abstraction → Node clustering/grouping (complexity hiding)
+
+DEVELOPMENT PATH:
+Phase 1: Theia extension with 3D visualization panel
+Phase 2: Enhanced OOP analysis and real-time parsing
+Phase 3: Educational features and multi-language support
+
+TECHNICAL STACK:
+- Theia extension framework
+- Three.js for 3D visualization
+- TypeScript for extension logic
+- Language servers for code analysis
+
+GOAL:
+Revolutionary educational tool for understanding OOP concepts through 
+spatial visualization, prioritizing learning over mainstream adoption.
+
+STATUS: Ready to begin Theia extension development

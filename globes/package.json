@@ -1,0 +1,25 @@
+{
+  "name": "oop-sphere-visualizer",
+  "version": "0.1.0",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "dependencies": {
+    "@theia/core": "1.53.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.4.2"
+  },
+  "scripts": {
+    "build": "node scripts/copy-js-simple.js"
+  },
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/oop-visualizer-frontend-module"
+    }
+  ],
+  "peerDependencies": {
+    "@theia/core": "1.53.2"
+  }
+}
