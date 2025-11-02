@@ -124,6 +124,8 @@ struct VariableAttempt {
     result: f64,
     timestamp: u64,
     accuracy: f64,
+    #[serde(default)]
+    formula: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +135,8 @@ pub struct MathSolution {
     pub accuracy: f64,
     pub timestamp: u64,
     pub attempts: u32,
+    #[serde(default)]
+    pub formula: Option<String>,
 }
 
 // main() function is only in src/main.rs (the binary)

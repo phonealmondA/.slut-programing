@@ -3,7 +3,7 @@
         speak("=== Interactive Math Solver ===")
         speak("")
         
-        targetNum <> 1250
+        targetNum <> 250
         firstInput <> 3
         secondInput <> 7
         

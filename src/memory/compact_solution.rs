@@ -62,10 +62,11 @@ impl CompactSolution {
 
         MathSolution {
             result: self.result as f64,
-            equation,
+            equation: equation.clone(),
             accuracy: 100.0,  // Cached solutions are always accurate
             timestamp: start_time + (self.timestamp_delta as u64 * 1000),
             attempts: 1,
+            formula: Some(equation),
         }
     }
 }

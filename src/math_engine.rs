@@ -31,23 +31,29 @@ impl MathEngine {
     pub fn solve_target(&mut self, target: f64, inputs: &[f64], var_name: &str, class_name: &str) -> Result<MathSolution> {
         let start_time = Instant::now();
         self.observation_count += 1;
-        
-        println!(">> Observation #{} - Target: {} for variable '{}'", 
+
+        println!(">> Observation #{} - Target: {} for variable '{}'",
                 self.observation_count, target, var_name);
-        
+
         let cache_key = self.create_cache_key(target, inputs, class_name, var_name);
-        
+
         if let Some(cached) = self.solutions.get(&cache_key) {
             if cached.accuracy == 100.0 {
                 let cache_time = start_time.elapsed();
-                println!("== Using perfect cached solution: {} = {} (100% accuracy)", 
+                println!("== Using perfect cached solution: {} = {} (100% accuracy)",
                         cached.equation, cached.result);
                 println!("   Cache retrieval time: {:?}", cache_time);
                 return Ok(cached.clone());
             }
         }
-        
-        let untried_ops = self.get_untried_operations(var_name, inputs);
+
+        // Build formula map from previous attempts
+        let formula_map = self.build_formula_map(var_name, inputs);
+        if !formula_map.is_empty() {
+            println!("-- Built formula map with {} entries", formula_map.len());
+        }
+
+        let untried_ops = self.get_untried_operations_with_formulas(var_name, inputs, &formula_map);
         println!("-- {} untried operations available for '{}'", untried_ops.len(), var_name);
         
         let solution_start = Instant::now();
@@ -144,29 +150,29 @@ impl MathEngine {
     }
     
     fn execute_two_number_calc(&mut self, a: f64, b: f64) -> f64 {
-        
+
         let operations = vec![
-            Operation { result: a + b, equation: format!("{} + {}", a, b) },
-            Operation { result: a - b, equation: format!("{} - {}", a, b) },
-            Operation { result: a * b, equation: format!("{} * {}", a, b) },
-            Operation { result: if b != 0.0 { a / b } else { a }, equation: format!("{} / {}", a, b) },
-            Operation { result: a.powf(b), equation: format!("{} ^ {}", a, b) },
+            Operation { result: a + b, equation: format!("{} + {}", a, b), formula: format!("{} + {}", a, b) },
+            Operation { result: a - b, equation: format!("{} - {}", a, b), formula: format!("{} - {}", a, b) },
+            Operation { result: a * b, equation: format!("{} * {}", a, b), formula: format!("{} * {}", a, b) },
+            Operation { result: if b != 0.0 { a / b } else { a }, equation: format!("{} / {}", a, b), formula: format!("{} / {}", a, b) },
+            Operation { result: a.powf(b), equation: format!("{} ^ {}", a, b), formula: format!("{} ^ {}", a, b) },
         ];
-        
-        let chosen = &operations[0]; 
+
+        let chosen = &operations[0];
         println!("   Using operation: {}", chosen.equation);
         chosen.result
     }
     
     fn execute_three_number_calc(&mut self, a: f64, b: f64, c: f64) -> f64 {
-        
+
         let operations = vec![
-            Operation { result: a + b + c, equation: format!("{} + {} + {}", a, b, c) },
-            Operation { result: a * b + c, equation: format!("{} * {} + {}", a, b, c) },
-            Operation { result: (a + b) * c, equation: format!("({} + {}) * {}", a, b, c) },
-            Operation { result: a + b * c, equation: format!("{} + {} * {}", a, b, c) },
+            Operation { result: a + b + c, equation: format!("{} + {} + {}", a, b, c), formula: format!("{} + {} + {}", a, b, c) },
+            Operation { result: a * b + c, equation: format!("{} * {} + {}", a, b, c), formula: format!("{} * {} + {}", a, b, c) },
+            Operation { result: (a + b) * c, equation: format!("({} + {}) * {}", a, b, c), formula: format!("({} + {}) * {}", a, b, c) },
+            Operation { result: a + b * c, equation: format!("{} + {} * {}", a, b, c), formula: format!("{} + {} * {}", a, b, c) },
         ];
-        
+
         let chosen = &operations[0];
         println!("   Using operation: {}", chosen.equation);
         chosen.result
@@ -225,15 +231,45 @@ impl MathEngine {
         format!("{}-{}-{}-{}", class_name, var_name, target, inputs_str)
     }
     
+    /// Build a formula map from inputs and previous attempts
+    /// Maps result values to their cumulative formulas
+    fn build_formula_map(&self, var_name: &str, inputs: &[f64]) -> HashMap<String, String> {
+        let mut formula_map = HashMap::new();
+
+        // Start with inputs as their own formulas (just the numeric value)
+        for &input in inputs {
+            let key = format!("{:.10}", input);
+            formula_map.insert(key, input.to_string());
+        }
+
+        // Add formulas from previous attempts
+        if let Some(attempts) = self.variable_attempts.get(var_name) {
+            for attempt in attempts {
+                if let Some(formula) = &attempt.formula {
+                    let key = format!("{:.10}", attempt.result);
+                    // Only add if we don't already have a formula for this result
+                    formula_map.entry(key).or_insert_with(|| formula.clone());
+                }
+            }
+        }
+
+        formula_map
+    }
+
     fn get_untried_operations(&self, var_name: &str, inputs: &[f64]) -> Vec<Operation> {
+        let formula_map = HashMap::new();
+        self.get_untried_operations_with_formulas(var_name, inputs, &formula_map)
+    }
+
+    fn get_untried_operations_with_formulas(&self, var_name: &str, inputs: &[f64], formula_map: &HashMap<String, String>) -> Vec<Operation> {
         let previous_attempts = self.variable_attempts.get(var_name).cloned().unwrap_or_default();
-        let attempted_equations: std::collections::HashSet<String> = 
+        let attempted_equations: std::collections::HashSet<String> =
             previous_attempts.iter().map(|a| a.equation.clone()).collect();
-        
+
         println!("-- Variable '{}' has {} previous attempts", var_name, attempted_equations.len());
-        
-        let all_operations = self.equation_solver.generate_all_operations(inputs);
-        
+
+        let all_operations = self.equation_solver.generate_all_operations_with_formulas(inputs, formula_map);
+
         all_operations.into_iter()
             .filter(|op| !attempted_equations.contains(&op.equation))
             .collect()
@@ -243,12 +279,14 @@ impl MathEngine {
         // Search untried operations in parallel
         if let Some(op) = untried_ops.par_iter().find_any(|op| (op.result - target).abs() < f64::EPSILON) {
             println!("== Exact match found from untried operations: {} = {}", op.equation, target);
+            println!("   Formula: {}", op.formula);
             return Ok(MathSolution {
                 result: target,
                 equation: op.equation.clone(),
                 accuracy: 100.0,
                 timestamp: 0,
                 attempts: 1,
+                formula: Some(op.formula.clone()),
             });
         }
 
@@ -256,21 +294,24 @@ impl MathEngine {
         let all_ops = self.equation_solver.generate_all_operations(inputs);
         if let Some(op) = all_ops.par_iter().find_any(|op| (op.result - target).abs() < f64::EPSILON) {
             println!("== Exact match found: {} = {}", op.equation, target);
+            println!("   Formula: {}", op.formula);
             return Ok(MathSolution {
                 result: target,
                 equation: op.equation.clone(),
                 accuracy: 100.0,
                 timestamp: 0,
                 attempts: 1,
+                formula: Some(op.formula.clone()),
             });
         }
-        
+
         Ok(MathSolution {
             result: if !inputs.is_empty() { inputs[0] } else { target },
             equation: if !inputs.is_empty() { inputs[0].to_string() } else { target.to_string() },
             accuracy: 0.0,
             timestamp: 0,
             attempts: 1,
+            formula: if !inputs.is_empty() { Some(inputs[0].to_string()) } else { Some(target.to_string()) },
         })
     }
     
@@ -282,6 +323,7 @@ impl MathEngine {
                 accuracy: 100.0,
                 timestamp: 0,
                 attempts: 1,
+                formula: Some(target.to_string()),
             });
         }
 
@@ -291,6 +333,7 @@ impl MathEngine {
             accuracy: self.calculate_accuracy(inputs[0], target),
             timestamp: 0,
             attempts: 1,
+            formula: Some(inputs[0].to_string()),
         };
 
         // Search untried operations in parallel for best match
@@ -303,6 +346,7 @@ impl MathEngine {
                     accuracy,
                     timestamp: 0,
                     attempts: 1,
+                    formula: Some(op.formula.clone()),
                 }
             })
             .max_by(|a, b| a.accuracy.partial_cmp(&b.accuracy).unwrap_or(std::cmp::Ordering::Equal))
@@ -323,6 +367,7 @@ impl MathEngine {
                     accuracy,
                     timestamp: 0,
                     attempts: 1,
+                    formula: Some(op.formula.clone()),
                 }
             })
             .max_by(|a, b| a.accuracy.partial_cmp(&b.accuracy).unwrap_or(std::cmp::Ordering::Equal))
@@ -331,10 +376,10 @@ impl MathEngine {
                 best = best_all;
             }
         }
-        
-        println!("== Best approximation: {} = {} (accuracy: {}%)", 
+
+        println!("== Best approximation: {} = {} (accuracy: {}%)",
                 best.equation, best.result, best.accuracy);
-        
+
         Ok(best)
     }
     
@@ -359,8 +404,9 @@ impl MathEngine {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)
                 .unwrap_or_default().as_millis() as u64,
             accuracy: solution.accuracy,
+            formula: solution.formula.clone(),
         };
-        
+
         self.variable_attempts
             .entry(var_name.to_string())
             .or_insert_with(Vec::new)

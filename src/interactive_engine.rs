@@ -108,9 +108,10 @@ impl InteractiveEngine {
             let math_solution = MathSolution {
                 result: cached_solution.result,
                 equation: cached_solution.equation.clone(),
-                accuracy: 100.0, 
+                accuracy: 100.0,
                 timestamp: cached_solution.timestamp,
                 attempts: cached_solution.success_count,
+                formula: Some(cached_solution.equation.clone()),
             };
             math_solutions.insert(key.clone(), math_solution);
         }
