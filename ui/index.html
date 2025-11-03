@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Consciousness IDE</title>
+    <title>Quantum Consciousness IDE - Visual .slut Editor</title>
 
     <!-- Load Tauri API -->
     <script type="module">
@@ -13,245 +13,365 @@
         }
     </script>
 
+    <!-- Load Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
     <style>
-        * { 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1a1a2e;
             color: white;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
             overflow: hidden;
         }
-        
+
+        /* Main container with centered globe */
+        #app-container {
+            display: grid;
+            grid-template-columns: 320px 1fr 380px;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* Center column layout - globe and code editor */
+        .center-column {
+            display: grid;
+            grid-template-rows: 78% 22%;
+            gap: 0;
+        }
+
+        /* Header spans all columns */
         .header {
-            background: rgba(0,0,0,0.2);
-            padding: 20px;
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 20px;
             text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 2px solid rgba(255,255,255,0.2);
         }
-        
+
         .header h1 {
-            font-size: 2em;
-            margin-bottom: 5px;
+            font-size: 1.8em;
+            margin-bottom: 3px;
         }
-        
+
         .header p {
             opacity: 0.9;
-            font-size: 0.95em;
+            font-size: 0.9em;
         }
-        
-        .container {
-            flex: 1;
-            display: flex;
-            padding: 20px;
-            gap: 20px;
-            overflow: hidden;
-        }
-        
-        .panel {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
+
+        /* Left sidebar - File controls */
+        .left-sidebar {
+            background: rgba(30, 30, 50, 0.98);
+            border-right: 1px solid rgba(102, 126, 234, 0.3);
             display: flex;
             flex-direction: column;
-        }
-        
-        .sidebar {
-            width: 280px;
-            min-width: 280px;
-        }
-        
-        .main {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .status {
-            width: 420px;
-            min-width: 420px;
             overflow-y: auto;
         }
-        
-        h2 {
-            font-size: 1.3em;
+
+        /* Center - Globe visualization */
+        .globe-container {
+            position: relative;
+            background: radial-gradient(ellipse at center, #2a2a3e 0%, #1a1a2e 100%);
+            overflow: hidden;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+        }
+
+        /* Code editor below globe */
+        .code-editor-container {
+            background: rgba(20, 20, 35, 0.98);
+            display: flex;
+            flex-direction: column;
+            border-top: 1px solid rgba(102, 126, 234, 0.3);
+        }
+
+        .code-editor-header {
+            padding: 12px 20px;
+            background: rgba(102, 126, 234, 0.1);
+            border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        #code-editor {
+            flex: 1;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            border: none;
+            padding: 15px;
+            font-family: 'Courier New', Consolas, monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+
+        #code-editor::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        #globe-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Right sidebar - Stats and steps */
+        .right-sidebar {
+            background: rgba(30, 30, 50, 0.98);
+            border-left: 1px solid rgba(102, 126, 234, 0.3);
+            display: grid;
+            grid-template-rows: 50% 50%;
+            overflow: hidden;
+        }
+
+        /* Panel sections */
+        .panel-section {
+            padding: 20px;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .panel-section h2 {
+            font-size: 1.2em;
             margin-bottom: 15px;
             padding-bottom: 10px;
-            border-bottom: 2px solid rgba(255,255,255,0.3);
+            border-bottom: 2px solid rgba(102, 126, 234, 0.5);
+            color: #667eea;
         }
-        
+
+        /* Drop zone */
         .drop-zone {
-            border: 2px dashed rgba(255,255,255,0.5);
+            border: 2px dashed rgba(102, 126, 234, 0.5);
             border-radius: 10px;
-            padding: 40px 20px;
+            padding: 30px 15px;
             text-align: center;
-            margin: 15px 0;
+            margin: 10px 0;
             cursor: pointer;
             transition: all 0.3s ease;
+            background: rgba(102, 126, 234, 0.05);
         }
-        
+
         .drop-zone:hover {
-            border-color: white;
-            background: rgba(255,255,255,0.1);
-            transform: translateY(-2px);
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.15);
+            transform: scale(1.02);
         }
-        
+
         .drop-zone.drag-over {
             border-color: #4CAF50;
             background: rgba(76, 175, 80, 0.2);
         }
-        
+
         .drop-zone-icon {
-            font-size: 3em;
+            font-size: 2.5em;
             margin-bottom: 10px;
         }
-        
+
         #fileInfo {
-            margin: 15px 0;
-            padding: 10px;
-            background: rgba(0,0,0,0.2);
+            margin: 10px 0;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
             border-radius: 5px;
-            min-height: 40px;
+            min-height: 45px;
+            font-size: 0.9em;
         }
-        
+
         #fileInfo p {
-            margin: 5px 0;
-            font-size: 0.95em;
+            margin: 4px 0;
         }
-        
+
+        /* Buttons */
         .button-group {
             display: flex;
             flex-direction: column;
             gap: 10px;
             margin-top: 15px;
         }
-        
+
         button {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 12px 20px;
+            padding: 12px 18px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1em;
+            font-size: 0.95em;
             font-weight: 600;
             transition: all 0.3s ease;
             border: 1px solid rgba(255,255,255,0.2);
         }
-        
-        button:hover {
+
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
-        
-        button:active {
+
+        button:active:not(:disabled) {
             transform: translateY(0);
         }
-        
-        button.secondary {
-            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+
+        button.success {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
         }
-        
+
         button.danger {
             background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
         }
-        
+
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
         }
-        
-        #output {
-            background: rgba(0,0,0,0.4);
-            border-radius: 8px;
-            padding: 15px;
-            flex: 1;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            line-height: 1.6;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        #output::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        #output::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.2);
-            border-radius: 4px;
-        }
-        
-        #output::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.3);
-            border-radius: 4px;
-        }
-        
-        #output::-webkit-scrollbar-thumb:hover {
-            background: rgba(255,255,255,0.5);
-        }
-        
-        .output-line {
-            margin: 2px 0;
-            padding: 2px 0;
-        }
-        
-        .output-success {
-            color: #4CAF50;
-        }
-        
-        .output-error {
-            color: #ff5252;
-        }
-        
-        .output-info {
-            color: #64B5F6;
-        }
-        
+
+        /* Stats cards */
         .stat-card {
             background: rgba(0,0,0,0.3);
             border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
-            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 15px;
+            margin: 8px 0;
+            border: 1px solid rgba(102, 126, 234, 0.3);
         }
-        
+
         .stat-card h3 {
-            font-size: 0.9em;
+            font-size: 0.85em;
             opacity: 0.8;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            color: #667eea;
         }
-        
+
         .stat-value {
-            font-size: 2em;
+            font-size: 1.8em;
             font-weight: bold;
             color: #4CAF50;
         }
-        
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 4px;
+
+        /* Steps output */
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
             overflow: hidden;
-            margin-top: 10px;
         }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
-            width: 0%;
-            transition: width 0.3s ease;
+
+        .outputs-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
         }
-        
+
+        #steps-output, #console-output {
+            background: rgba(20, 20, 35, 0.8);
+            border-radius: 8px;
+            padding: 12px;
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.6;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+
+        #console-output {
+            color: #4caf50;
+        }
+
+        .step-line {
+            margin: 4px 0;
+            padding: 6px 8px;
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 3px solid #667eea;
+            border-radius: 3px;
+        }
+
+        .step-number {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        /* Globe overlay controls */
+        .globe-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .globe-controls button {
+            padding: 8px 12px;
+            font-size: 0.85em;
+            min-width: auto;
+        }
+
+        /* Globe legend */
+        .globe-legend {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            z-index: 10;
+        }
+
+        .globe-legend h3 {
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            font-size: 0.85em;
+        }
+
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Scrollbar styling */
+        .left-sidebar::-webkit-scrollbar,
+        .right-sidebar::-webkit-scrollbar,
+        #steps-output::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .left-sidebar::-webkit-scrollbar-track,
+        .right-sidebar::-webkit-scrollbar-track,
+        #steps-output::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+
+        .left-sidebar::-webkit-scrollbar-thumb,
+        .right-sidebar::-webkit-scrollbar-thumb,
+        #steps-output::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        .left-sidebar::-webkit-scrollbar-thumb:hover,
+        .right-sidebar::-webkit-scrollbar-thumb:hover,
+        #steps-output::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+
+        /* Status indicator */
         .status-indicator {
             display: inline-block;
             width: 10px;
@@ -260,534 +380,215 @@
             margin-right: 8px;
             animation: pulse 2s ease-in-out infinite;
         }
-        
+
         .status-idle {
             background: #757575;
         }
-        
+
         .status-running {
             background: #4CAF50;
         }
-        
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        
+
+        /* Progress bar */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Help text */
         .help-text {
-            font-size: 0.85em;
+            font-size: 0.8em;
             opacity: 0.7;
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(0,0,0,0.2);
+            padding: 12px;
+            background: rgba(102, 126, 234, 0.1);
             border-radius: 5px;
+            margin-top: 15px;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>⚛️ Quantum Consciousness IDE</h1>
-        <p>Build, Run, and Watch Your Programs Learn</p>
-    </div>
-    
-    <div class="container">
-        <!-- Left Sidebar -->
-        <div class="panel sidebar">
-            <h2>📁 File Manager</h2>
-            
-            <div class="drop-zone" id="dropZone">
-                <div class="drop-zone-icon">📄</div>
-                <div>Drop .slut file here</div>
-                <div style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">or click to browse</div>
-            </div>
-            
-            <div id="fileInfo">
-                <p style="opacity: 0.6;">No file selected</p>
-            </div>
-            
-            <div class="button-group">
-                <button onclick="runOnce()" id="runOnceBtn" disabled>
-                    ▶️ Run Once
-                </button>
-                <button onclick="runUntilSolved()" class="secondary" id="runLoopBtn" disabled>
-                    🔁 Loop Until Solved
-                </button>
-                <button onclick="stopExecution()" class="danger" id="stopBtn" disabled>
-                    ⏹️ Stop
-                </button>
-            </div>
-            
-            <div class="help-text">
-                <strong>Quick Start:</strong><br>
-                1. Drag a .slut file above<br>
-                2. Click "Run Once" to test<br>
-                3. Click "Loop Until Solved" to auto-iterate
-            </div>
+    <div id="app-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>⚛️ Quantum Consciousness IDE</h1>
+            <p>Visual .slut Programming Environment with 3D Code Visualization</p>
         </div>
-        
-        <!-- Center Console -->
-        <div class="panel main">
-            <h2>
-                <span class="status-indicator status-idle" id="statusIndicator"></span>
-                Console Output
-            </h2>
-            <div id="output">
-<span style="opacity: 0.7;">Welcome to Quantum Consciousness IDE! 🚀
 
-Ready to run your first program...
+        <!-- Left Sidebar - File Controls -->
+        <div class="left-sidebar">
+            <div class="panel-section">
+                <h2>📁 File Manager</h2>
 
-Instructions:
-• Drag and drop a .slut file into the left panel
-• Use "Run Once" to execute a single observation
-• Use "Loop Until Solved" to automatically iterate until 100% accuracy
-• Watch the memory stats update in real-time on the right
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-icon">📄</div>
+                    <div>Drop .slut file here</div>
+                    <div style="font-size: 0.85em; opacity: 0.7; margin-top: 5px;">or click to browse</div>
+                </div>
 
-Your programs will learn and improve with each run!
-</span>
-            </div>
-        </div>
-        
-        <!-- Right Status Panel -->
-        <div class="panel status">
-            <h2>📊 Memory Status</h2>
-
-            <div class="stat-card">
-                <h3>Variables Stored</h3>
-                <div class="stat-value" id="varCount">0</div>
-            </div>
-
-            <div class="stat-card">
-                <h3>Solutions Cached</h3>
-                <div class="stat-value" id="solCount">0</div>
-            </div>
-
-            <div class="stat-card">
-                <h3>Current Accuracy</h3>
-                <div class="stat-value" id="accuracy">0%</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="accuracyBar"></div>
+                <div id="fileInfo">
+                    <p style="opacity: 0.6;">No file selected</p>
                 </div>
             </div>
 
-            <div class="stat-card">
-                <h3>Observation Count</h3>
-                <div class="stat-value" id="obsCount">0</div>
+            <div class="panel-section">
+                <h2>🎮 Controls</h2>
+
+                <div class="button-group">
+                    <button onclick="runOnce()" id="runOnceBtn" disabled>
+                        ▶️ Run Once
+                    </button>
+                    <button onclick="runUntilSolved()" class="success" id="runLoopBtn" disabled>
+                        🔁 Loop Until Solved
+                    </button>
+                    <button onclick="stopExecution()" class="danger" id="stopBtn" disabled>
+                        ⏹️ Stop
+                    </button>
+                </div>
+
+                <div class="help-text">
+                    <strong>Quick Start:</strong><br>
+                    1. Drag a .slut file above<br>
+                    2. Watch the 3D visualization<br>
+                    3. Click "Run Once" to test<br>
+                    4. Use "Loop" to auto-iterate
+                </div>
             </div>
 
-            <div class="stat-card">
-                <h3>📈 Accuracy Over Time</h3>
-                <canvas id="accuracyChart" style="width: 100%; height: 150px; margin-top: 10px;"></canvas>
+            <div class="panel-section">
+                <h2>📊 Quick Stats</h2>
+
+                <div class="stat-card">
+                    <h3>Current Accuracy</h3>
+                    <div class="stat-value" id="accuracy">0%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="accuracyBar"></div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <h3>Observations</h3>
+                    <div class="stat-value" id="obsCount">0</div>
+                </div>
             </div>
 
-            <div class="stat-card" id="equationCard" style="display: none;">
-                <h3>🎯 Final Equation</h3>
-                <div id="equationDisplay" style="font-family: 'Courier New', monospace; font-size: 0.85em; line-height: 1.8; overflow-x: auto;"></div>
+            <div class="panel-section">
+                <h2>💾 Memory Status</h2>
+
+                <div class="stat-card">
+                    <h3>Variables Stored</h3>
+                    <div class="stat-value" id="varCount">0</div>
+                </div>
+
+                <div class="stat-card">
+                    <h3>Solutions Cached</h3>
+                    <div class="stat-value" id="solCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Column - Globe and Code Editor -->
+        <div class="center-column">
+            <!-- Globe Visualization -->
+            <div class="globe-container">
+                <canvas id="globe-canvas"></canvas>
+
+                <!-- Globe controls overlay -->
+                <div class="globe-controls">
+                    <button onclick="resetGlobeView()">🏠 Reset</button>
+                    <button onclick="toggleRotation()">🔄 Rotate</button>
+                    <button onclick="toggleLabels()" id="toggleLabelsBtn">🏷️ Labels</button>
+                </div>
+
+                <!-- Globe legend -->
+                <div class="globe-legend">
+                    <h3>Code Block Types</h3>
+                    <div class="legend-item">
+                        <span class="color-dot" style="background: #00bcd4;"></span>
+                        <span>Inputs</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="color-dot" style="background: #ff5722;"></span>
+                        <span>Target</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="color-dot" style="background: #ffc107;"></span>
+                        <span>Result</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="color-dot" style="background: #2196f3;"></span>
+                        <span>Variables</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="color-dot" style="background: #ff9800;"></span>
+                        <span>Function</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="color-dot" style="background: #4caf50;"></span>
+                        <span>Output</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Editor -->
+            <div class="code-editor-container">
+                <div class="code-editor-header">
+                    📝 .slut Code Editor
+                </div>
+                <textarea
+                    id="code-editor"
+                    placeholder="Write your .slut code here...
+Or drag and drop a .slut file to load it."
+                    spellcheck="false"
+                ></textarea>
+            </div>
+        </div>
+
+        <!-- Right Sidebar - Execution Steps and Outputs -->
+        <div class="right-sidebar">
+            <!-- Execution Steps (Top 50%) -->
+            <div class="panel-section steps-container">
+                <h2>
+                    <span class="status-indicator status-idle" id="statusIndicator"></span>
+                    Execution Steps
+                </h2>
+                <div id="steps-output">
+                    <p style="opacity: 0.6; text-align: center; padding: 20px;">
+                        Execute code to see steps...
+                    </p>
+                </div>
+            </div>
+
+            <!-- Console Outputs (Bottom 50%) -->
+            <div class="panel-section outputs-container">
+                <h2>📟 Console Output</h2>
+                <div id="console-output">
+                    <p style="opacity: 0.6; text-align: center; padding: 20px;">
+                        Program output will appear here...
+                    </p>
+                </div>
             </div>
         </div>
     </div>
-    
-    <script>
-        // Global state (declare first before anything else)
-        let currentFile = null;
-        let isRunning = false;
 
-        // Tauri API references (will be set after window loads)
-        let invoke, open, listen;
-
-        // UI Elements
-        let dropZone, fileInfo, output, statusIndicator, runOnceBtn, runLoopBtn, stopBtn;
-
-        // Wait for Tauri to be ready
-        function waitForTauri() {
-            return new Promise((resolve) => {
-                if (window.__TAURI__ && window.__TAURI__.tauri && window.__TAURI__.dialog && window.__TAURI__.event) {
-                    resolve();
-                } else {
-                    console.log('Waiting for Tauri API...');
-                    setTimeout(() => waitForTauri().then(resolve), 100);
-                }
-            });
-        }
-
-        // Initialize when window loads
-        window.addEventListener('DOMContentLoaded', async () => {
-            console.log('DOM loaded, waiting for Tauri...');
-
-            try {
-                // Wait for Tauri to be ready
-                await waitForTauri();
-                console.log('Tauri API ready!');
-
-                // Initialize Tauri API
-                invoke = window.__TAURI__.tauri.invoke;
-                open = window.__TAURI__.dialog.open;
-                listen = window.__TAURI__.event.listen;
-
-                // Initialize UI elements
-                dropZone = document.getElementById('dropZone');
-                fileInfo = document.getElementById('fileInfo');
-                output = document.getElementById('output');
-                statusIndicator = document.getElementById('statusIndicator');
-                runOnceBtn = document.getElementById('runOnceBtn');
-                runLoopBtn = document.getElementById('runLoopBtn');
-                stopBtn = document.getElementById('stopBtn');
-
-                console.log('UI elements initialized');
-
-                // Set up event listeners
-                setupEventListeners();
-
-                // Auto-update stats and initialize
-                setInterval(updateStats, 2000);
-                initializeApp();
-            } catch (error) {
-                console.error('Failed to initialize:', error);
-                document.body.innerHTML = '<div style="padding: 20px; color: red;">ERROR: Failed to initialize Tauri. Make sure you are running this through npm run dev</div>';
-            }
-        });
-
-        // Helper function to load a file
-        function loadFile(filePath) {
-            currentFile = filePath;
-            const fileName = filePath.split('\\').pop().split('/').pop();
-            if (fileInfo) {
-                fileInfo.innerHTML = `
-                    <p><strong>📄 ${fileName}</strong></p>
-                    <p style="font-size: 0.85em; opacity: 0.7;">Ready to execute</p>
-                `;
-            }
-            addOutput(`✅ File loaded: ${fileName}`, 'success');
-            if (runOnceBtn) runOnceBtn.disabled = false;
-            if (runLoopBtn) runLoopBtn.disabled = false;
-        }
-
-        // Set up all event listeners
-        function setupEventListeners() {
-            // File selection handler (click to browse)
-            dropZone.addEventListener('click', async () => {
-            try {
-                const selected = await open({
-                    multiple: false,
-                    filters: [{
-                        name: 'SLUT Files',
-                        extensions: ['slut']
-                    }]
-                });
-
-                if (selected) {
-                    loadFile(selected);
-                }
-            } catch (error) {
-                addOutput(`❌ Error selecting file: ${error}`, 'error');
-            }
-            });
-
-            // Listen for Tauri file drop events
-            listen('tauri://file-drop', (event) => {
-                const files = event.payload;
-                if (files && files.length > 0) {
-                    const filePath = files[0];
-                    if (filePath.endsWith('.slut')) {
-                        loadFile(filePath);
-                        dropZone.classList.remove('drag-over');
-                    } else {
-                        addOutput('❌ Please drop a .slut file', 'error');
-                    }
-                }
-            });
-
-            // Visual feedback for drag over
-            listen('tauri://file-drop-hover', () => {
-                dropZone.classList.add('drag-over');
-            });
-
-            // Remove visual feedback when drag leaves
-            listen('tauri://file-drop-cancelled', () => {
-                dropZone.classList.remove('drag-over');
-            });
-
-            // Listen for console output events from Rust
-            listen('console-output', (event) => {
-                const { message, level } = event.payload;
-                let displayType = 'info';
-
-                // Map level to output type
-                if (level === 'error') {
-                    displayType = 'error';
-                } else if (level === 'success') {
-                    displayType = 'success';
-                } else if (level === 'info') {
-                    displayType = 'info';
-                }
-
-                addOutput(message, displayType);
-            });
-        }
-
-        // Run once
-        async function runOnce() {
-            if (!invoke) {
-                console.error('Tauri API not ready yet');
-                return;
-            }
-            if (!currentFile) {
-                addOutput('❌ No file selected', 'error');
-                return;
-            }
-
-            setRunningState(true);
-            addOutput(`▶️ Running program: ${currentFile}`, 'info');
-
-            try {
-                const result = await invoke('run_file', { filePath: currentFile });
-                addOutput('✅ ' + result, 'success');
-                await updateStats();
-            } catch (error) {
-                addOutput('❌ Error: ' + error, 'error');
-                console.error('Run error:', error);
-            } finally {
-                setRunningState(false);
-            }
-        }
-
-        // Run until solved
-        async function runUntilSolved() {
-            if (!invoke) {
-                console.error('Tauri API not ready yet');
-                return;
-            }
-            if (!currentFile) {
-                addOutput('❌ No file selected', 'error');
-                return;
-            }
-
-            setRunningState(true);
-            addOutput(`🔁 Looping until solved (max 50 attempts): ${currentFile}`, 'info');
-
-            try {
-                const result = await invoke('run_until_solved', {
-                    filePath: currentFile,
-                    maxAttempts: 50
-                });
-                addOutput('🎉 ' + result, 'success');
-                await updateStats();
-            } catch (error) {
-                addOutput('❌ Error: ' + error, 'error');
-                console.error('Loop error:', error);
-            } finally {
-                setRunningState(false);
-            }
-        }
-
-        // Stop execution
-        async function stopExecution() {
-            if (!invoke) {
-                console.error('Tauri API not ready yet');
-                return;
-            }
-            try {
-                await invoke('stop_execution');
-                setRunningState(false);
-                addOutput('⏹️ Execution stopped', 'info');
-            } catch (error) {
-                addOutput('❌ Error stopping: ' + error, 'error');
-            }
-        }
-
-        // Update stats display
-        async function updateStats() {
-            if (!invoke) return; // Silently skip if API not ready
-            try {
-                const stats = await invoke('get_cache_stats');
-                document.getElementById('varCount').textContent = stats.variable_count;
-                document.getElementById('solCount').textContent = stats.solution_count;
-                document.getElementById('obsCount').textContent = stats.observation_count;
-
-                // Get cache history for accurate current accuracy
-                const history = await invoke('get_cache_history');
-
-                if (history.attempts && history.attempts.length > 0) {
-                    // Get the most recent accuracy from cache
-                    const lastAttempt = history.attempts[history.attempts.length - 1];
-                    document.getElementById('accuracy').textContent = lastAttempt.accuracy.toFixed(1) + '%';
-                    document.getElementById('accuracyBar').style.width = lastAttempt.accuracy + '%';
-
-                    // Update the chart
-                    drawAccuracyChart(history.attempts);
-
-                    // Show equation display if we have a target
-                    if (history.target && lastAttempt.accuracy >= 100.0) {
-                        displayFinalEquation(history.attempts, history.target);
-                    }
-                } else {
-                    // Fallback to stats if no history
-                    document.getElementById('accuracy').textContent = stats.last_accuracy.toFixed(1) + '%';
-                    document.getElementById('accuracyBar').style.width = stats.last_accuracy + '%';
-                }
-            } catch (error) {
-                console.error('Failed to update stats:', error);
-            }
-        }
-
-        // Draw accuracy chart
-        function drawAccuracyChart(attempts) {
-            const canvas = document.getElementById('accuracyChart');
-            if (!canvas) return;
-
-            const ctx = canvas.getContext('2d');
-            const width = canvas.width = canvas.offsetWidth;
-            const height = canvas.height = 150;
-
-            // Clear canvas
-            ctx.clearRect(0, 0, width, height);
-
-            if (!attempts || attempts.length === 0) return;
-
-            // Calculate dimensions
-            const padding = 20;
-            const chartWidth = width - padding * 2;
-            const chartHeight = height - padding * 2;
-
-            // Draw background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.fillRect(0, 0, width, height);
-
-            // Draw grid lines
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 4; i++) {
-                const y = padding + (chartHeight / 4) * i;
-                ctx.beginPath();
-                ctx.moveTo(padding, y);
-                ctx.lineTo(width - padding, y);
-                ctx.stroke();
-
-                // Draw y-axis labels (100% to 0%)
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-                ctx.font = '10px sans-serif';
-                ctx.textAlign = 'right';
-                ctx.fillText(`${100 - (i * 25)}%`, padding - 5, y + 3);
-            }
-
-            // Draw line chart
-            ctx.strokeStyle = '#4CAF50';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-
-            attempts.forEach((attempt, index) => {
-                const x = padding + (chartWidth / (attempts.length - 1 || 1)) * index;
-                const y = padding + chartHeight - (attempt.accuracy / 100) * chartHeight;
-
-                if (index === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            });
-
-            ctx.stroke();
-
-            // Draw points
-            ctx.fillStyle = '#4CAF50';
-            attempts.forEach((attempt, index) => {
-                const x = padding + (chartWidth / (attempts.length - 1 || 1)) * index;
-                const y = padding + chartHeight - (attempt.accuracy / 100) * chartHeight;
-
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        }
-
-        // Display final equation showing all steps
-        function displayFinalEquation(attempts, target) {
-            const equationCard = document.getElementById('equationCard');
-            const equationDisplay = document.getElementById('equationDisplay');
-
-            if (!equationCard || !equationDisplay) return;
-
-            equationCard.style.display = 'block';
-
-            let html = `<div style="color: #4CAF50; font-weight: bold; margin-bottom: 10px;">Target: ${target}</div>`;
-
-            attempts.forEach((attempt, index) => {
-                const color = attempt.accuracy >= 100 ? '#4CAF50' :
-                             attempt.accuracy >= 75 ? '#8BC34A' :
-                             attempt.accuracy >= 50 ? '#FFC107' : '#FF9800';
-
-                html += `<div style="color: ${color}; margin: 5px 0;">`;
-                html += `${index + 1}. ${attempt.equation} = ${attempt.result} `;
-                html += `<span style="opacity: 0.7;">(${attempt.accuracy.toFixed(1)}%)</span>`;
-                html += `</div>`;
-            });
-
-            // Show final result prominently
-            const lastAttempt = attempts[attempts.length - 1];
-            if (lastAttempt.accuracy >= 100) {
-                html += `<div style="border-top: 1px solid rgba(255,255,255,0.2); margin-top: 10px; padding-top: 10px; color: #4CAF50; font-size: 1.1em; font-weight: bold;">`;
-                html += `${target} = ${lastAttempt.equation}`;
-                html += `</div>`;
-            }
-
-            equationDisplay.innerHTML = html;
-        }
-
-        // Helper functions
-        function setRunningState(running) {
-            isRunning = running;
-            if (!statusIndicator || !runOnceBtn || !runLoopBtn || !stopBtn) return;
-            statusIndicator.className = running ? 'status-indicator status-running' : 'status-indicator status-idle';
-            runOnceBtn.disabled = running || !currentFile;
-            runLoopBtn.disabled = running || !currentFile;
-            stopBtn.disabled = !running;
-        }
-
-        function addOutput(text, type = '') {
-            if (!output) {
-                console.log(text); // Fallback to console if output not ready
-                return;
-            }
-            const line = document.createElement('div');
-            line.className = 'output-line';
-            if (type) line.classList.add(`output-${type}`);
-            line.textContent = `> ${text}`;
-            output.appendChild(line);
-            output.scrollTop = output.scrollHeight;
-        }
-
-        // Initialize the application
-        async function initializeApp() {
-            console.log('initializeApp called');
-
-            // Clear in-memory state on startup to ensure we read fresh from cache files
-            try {
-                await invoke('clear_memory_state');
-                console.log('Memory state cleared on startup');
-            } catch (error) {
-                console.error('Failed to clear memory state:', error);
-            }
-
-            setTimeout(async () => {
-                console.log('Initializing app...');
-                addOutput('✨ Quantum Consciousness IDE initialized', 'success');
-                addOutput('📂 Please drag and drop a .slut file to begin', 'info');
-                addOutput('💡 Or click the drop zone to browse for a file', 'info');
-
-                updateStats();
-            }, 500);
-        }
-
-        // Clear memory state when window closes
-        window.addEventListener('beforeunload', async () => {
-            if (invoke) {
-                try {
-                    await invoke('clear_memory_state');
-                    console.log('Memory state cleared on window close');
-                } catch (error) {
-                    console.error('Failed to clear memory state:', error);
-                }
-            }
-        });
-    </script>
+    <!-- Scripts -->
+    <script src="js/globe-engine.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>

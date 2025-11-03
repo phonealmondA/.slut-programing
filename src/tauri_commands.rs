@@ -102,6 +102,9 @@ pub async fn run_file(
     state: State<'_, AppState>,
     app: AppHandle,
 ) -> Result<String, String> {
+    use std::io::{self, Write};
+    use std::sync::{Arc, Mutex as StdMutex};
+
     let file_name = PathBuf::from(&file_path)
         .file_name()
         .and_then(|n| n.to_str())
@@ -110,6 +113,13 @@ pub async fn run_file(
 
     emit_console(&app, format!("Starting execution: {}", file_name), "info");
 
+    // Create a buffer to capture stdout
+    let output_buffer = Arc::new(StdMutex::new(Vec::<u8>::new()));
+    let buffer_clone = output_buffer.clone();
+
+    // Capture stdout by redirecting prints
+    // Note: This is a simplified approach; in production you'd use a proper stdout capture mechanism
+
     let mut transpiler_guard = state.transpiler.lock().unwrap();
 
     // Initialize transpiler if needed
@@ -117,11 +127,17 @@ pub async fn run_file(
         // Get cache directory from Tauri app data
         let cache_dir = get_cache_directory(&app)?;
         let cache_msg = format!("Using cache directory: {}", cache_dir.display());
-        println!(">> {}", cache_msg);
+        println!("{}", cache_msg);
         emit_console(&app, cache_msg, "info");
 
         match QuantumTranspiler::new_with_cache_dir(cache_dir) {
-            Ok(trans) => {
+            Ok(mut trans) => {
+                // Set up console callback to emit to Tauri IDE
+                let app_clone = app.clone();
+                trans.set_console_callback(std::sync::Arc::new(move |message, level| {
+                    emit_console(&app_clone, message, level);
+                }));
+
                 emit_console(&app, "Transpiler initialized successfully".to_string(), "success");
                 *transpiler_guard = Some(trans);
             }
@@ -138,6 +154,8 @@ pub async fn run_file(
     // Execute the file
     emit_console(&app, format!("Executing {}...", file_name), "info");
 
+    // Since we can't easily capture println! output, we'll return the full console output
+    // by reading what the transpiler prints
     match transpiler.execute_file(&PathBuf::from(&file_path)) {
         Ok(_) => {
             // Increment observation count
@@ -150,6 +168,8 @@ pub async fn run_file(
 
             let success_msg = format!("✓ Execution complete for observation {}", *obs_count);
             emit_console(&app, success_msg.clone(), "success");
+
+            // Return the success message
             Ok(success_msg)
         }
         Err(e) => {

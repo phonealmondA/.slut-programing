@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH, Instant};
-use crate::{MathSolution, VariableAttempt, VariableValue};
+use crate::{MathSolution, VariableAttempt, VariableValue, ConsoleCallback};
 use crate::equation_solver::{EquationSolver, Operation};
 use rayon::prelude::*;
 use evalexpr::*;
@@ -11,7 +11,8 @@ pub struct MathEngine {
     variable_attempts: HashMap<String, Vec<VariableAttempt>>,
     equation_solver: EquationSolver,
     observation_count: u32,
-    function_call_results: HashMap<String, f64>, 
+    function_call_results: HashMap<String, f64>,
+    console_callback: Option<ConsoleCallback>,
 }
 
 impl MathEngine {
@@ -25,6 +26,18 @@ impl MathEngine {
             equation_solver: EquationSolver::new(),
             observation_count: 0,
             function_call_results: HashMap::new(),
+            console_callback: None,
+        }
+    }
+
+    pub fn set_console_callback(&mut self, callback: ConsoleCallback) {
+        self.console_callback = Some(callback);
+    }
+
+    fn emit(&self, message: String, level: &str) {
+        println!("{}", message);
+        if let Some(callback) = &self.console_callback {
+            callback(message, level);
         }
     }
     
@@ -32,17 +45,17 @@ impl MathEngine {
         let start_time = Instant::now();
         self.observation_count += 1;
 
-        println!(">> Observation #{} - Target: {} for variable '{}'",
-                self.observation_count, target, var_name);
+        self.emit(format!(">> Observation #{} - Target: {} for variable '{}'",
+                self.observation_count, target, var_name), "info");
 
         let cache_key = self.create_cache_key(target, inputs, class_name, var_name);
 
         if let Some(cached) = self.solutions.get(&cache_key) {
             if cached.accuracy == 100.0 {
                 let cache_time = start_time.elapsed();
-                println!("== Using perfect cached solution: {} = {} (100% accuracy)",
-                        cached.equation, cached.result);
-                println!("   Cache retrieval time: {:?}", cache_time);
+                self.emit(format!("== Using perfect cached solution: {} = {} (100% accuracy)",
+                        cached.equation, cached.result), "success");
+                self.emit(format!("   Cache retrieval time: {:?}", cache_time), "info");
                 return Ok(cached.clone());
             }
         }
@@ -50,39 +63,39 @@ impl MathEngine {
         // Build formula map from previous attempts
         let formula_map = self.build_formula_map(var_name, inputs);
         if !formula_map.is_empty() {
-            println!("-- Built formula map with {} entries", formula_map.len());
+            self.emit(format!("-- Built formula map with {} entries", formula_map.len()), "info");
         }
 
         let untried_ops = self.get_untried_operations_with_formulas(var_name, inputs, &formula_map);
-        println!("-- {} untried operations available for '{}'", untried_ops.len(), var_name);
+        self.emit(format!("-- {} untried operations available for '{}'", untried_ops.len(), var_name), "info");
         
         let solution_start = Instant::now();
         let mut solution = self.find_exact_solution(target, inputs, &untried_ops, var_name)?;
         
         if solution.accuracy < 100.0 {
-            println!("!! No exact match found, finding best approximation for target {}", target);
+            self.emit(format!("!! No exact match found, finding best approximation for target {}", target), "warning");
             solution = self.find_best_approximation(target, inputs, &untried_ops, var_name)?;
         }
-        
+
         let solution_time = solution_start.elapsed();
         solution.timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
-        
+
         self.remember_variable_attempt(var_name, &solution);
-        
+
         if let Some(cached) = self.solutions.get(&cache_key) {
             if solution.accuracy > cached.accuracy {
                 self.solutions.insert(cache_key, solution.clone());
-                println!("** New best solution cached: {} = {} (accuracy: {}%)", 
-                        solution.equation, solution.result, solution.accuracy);
+                self.emit(format!("** New best solution cached: {} = {} (accuracy: {}%)",
+                        solution.equation, solution.result, solution.accuracy), "success");
             }
         } else {
             self.solutions.insert(cache_key, solution.clone());
-            println!("** Solution cached: {} = {} (accuracy: {}%)", 
-                    solution.equation, solution.result, solution.accuracy);
+            self.emit(format!("** Solution cached: {} = {} (accuracy: {}%)",
+                    solution.equation, solution.result, solution.accuracy), "success");
         }
-        
+
         let total_time = start_time.elapsed();
-        println!("   Solution time: {:?}, Total time: {:?}", solution_time, total_time);
+        self.emit(format!("   Solution time: {:?}, Total time: {:?}", solution_time, total_time), "info");
         
         Ok(solution)
     }

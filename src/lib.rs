@@ -15,8 +15,12 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::{self, Write};
+use std::sync::Arc;
 use tracing::{info, debug, warn, error};
 use tracing_subscriber;
+
+// Type alias for console output callback
+pub type ConsoleCallback = Arc<dyn Fn(String, &str) + Send + Sync>;
 
 mod function_builder;
 mod function_executor;
@@ -153,6 +157,7 @@ pub struct QuantumTranspiler {
     loop_executor: LoopExecutor,
     current_class_name: String,
     cache_directory: PathBuf,
+    console_callback: Option<ConsoleCallback>,
 }
 
 impl QuantumTranspiler {
@@ -208,6 +213,7 @@ impl QuantumTranspiler {
             loop_executor,
             current_class_name: String::new(),
             cache_directory: cache_dir,
+            console_callback: None,
         })
     }
 
@@ -248,7 +254,26 @@ impl QuantumTranspiler {
 
         Ok(())
     }
-    
+
+    /// Set a console callback for emitting output to Tauri IDE
+    pub fn set_console_callback(&mut self, callback: ConsoleCallback) {
+        self.console_callback = Some(callback.clone());
+        // Propagate to child components
+        self.math_engine.set_console_callback(callback.clone());
+        self.variable_manager.set_console_callback(callback);
+    }
+
+    /// Helper method to print to both console and Tauri IDE
+    fn emit(&self, message: String, level: &str) {
+        // Always print to stdout for cmd.exe
+        println!("{}", message);
+
+        // Also emit to Tauri IDE if callback is set
+        if let Some(callback) = &self.console_callback {
+            callback(message, level);
+        }
+    }
+
     pub fn execute_file(&mut self, file_path: &PathBuf) -> Result<()> {
         // CRITICAL: Reload cache before each execution to pick up previous run's learning
         self.reload_cache()?;
@@ -273,6 +298,12 @@ impl QuantumTranspiler {
                 self.cache.variable_attempts.clone()
             );
             self.variable_manager = VariableManager::new(self.cache.variables.clone());
+
+            // Re-propagate console callback to new engine instances
+            if let Some(callback) = &self.console_callback {
+                self.math_engine.set_console_callback(callback.clone());
+                self.variable_manager.set_console_callback(callback.clone());
+            }
 
             info!("** Cache reloaded: {} variables, {} solutions",
                   self.cache.variables.len(),
@@ -836,17 +867,17 @@ impl QuantumTranspiler {
     fn output_variable(&self, var_name: &str) -> Result<()> {
         if let Some(variable) = self.variable_manager.get_variable(var_name) {
             match &variable.value {
-                VariableValue::Number(n) => println!("Final result: {}", n),
-                VariableValue::String(s) => println!("Final result: {}", s),
-                VariableValue::Boolean(b) => println!("Final result: {}", b),
-                VariableValue::FunctionResult(f) => println!("Final result: [Function: {}]", f),
+                VariableValue::Number(n) => self.emit(format!("Final result: {}", n), "success"),
+                VariableValue::String(s) => self.emit(format!("Final result: {}", s), "success"),
+                VariableValue::Boolean(b) => self.emit(format!("Final result: {}", b), "success"),
+                VariableValue::FunctionResult(f) => self.emit(format!("Final result: [Function: {}]", f), "success"),
             }
-            
+
             if let Some(eq) = &variable.source_equation {
-                println!("   Source: {}", eq);
+                self.emit(format!("   Source: {}", eq), "info");
             }
         } else {
-            println!("!! Variable '{}' not found", var_name);
+            self.emit(format!("!! Variable '{}' not found", var_name), "error");
         }
         Ok(())
     }
@@ -858,23 +889,23 @@ impl QuantumTranspiler {
         } else if let Some(variable) = self.variable_manager.get_variable(target_str) {
             match &variable.value {
                 VariableValue::Number(n) => {
-                    println!("-- Resolved target variable '{}' = {}", target_str, n);
+                    self.emit(format!("-- Resolved target variable '{}' = {}", target_str, n), "info");
                     *n
                 },
                 _ => {
-                    println!("!! Target variable '{}' is not numeric", target_str);
+                    self.emit(format!("!! Target variable '{}' is not numeric", target_str), "error");
                     return Ok(());
                 }
             }
         } else {
-            println!("!! Could not resolve target: {}", target_str);
+            self.emit(format!("!! Could not resolve target: {}", target_str), "error");
             return Ok(());
         };
         
         let inputs = self.variable_manager.resolve_expression_inputs_with_target(inputs_str, Some(target));
         
-        println!(">> Target-seeking quantum mathematics for variable '{}': target={}, inputs={:?}", 
-                var_name, target, inputs);
+        self.emit(format!(">> Target-seeking quantum mathematics for variable '{}': target={}, inputs={:?}",
+                var_name, target, inputs), "info");
         
         let solution = self.math_engine.solve_target(target, &inputs, var_name, class_name)?;
         
@@ -884,9 +915,9 @@ impl QuantumTranspiler {
             Some(solution.equation.clone()),
         )?;
         
-        println!("== Solution found: {} = {} (accuracy: {}%)", 
-                solution.equation, solution.result, solution.accuracy);
-        println!("-- Variable '{}' stored with value: {}", var_name, solution.result);
+        self.emit(format!("== Solution found: {} = {} (accuracy: {}%)",
+                solution.equation, solution.result, solution.accuracy), "success");
+        self.emit(format!("-- Variable '{}' stored with value: {}", var_name, solution.result), "info");
         
         Ok(())
     }

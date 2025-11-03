@@ -1,24 +1,39 @@
 use anyhow::Result;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::{StoredVariable, VariableValue};
+use crate::{StoredVariable, VariableValue, ConsoleCallback};
 
 pub struct VariableManager {
     variables: HashMap<String, StoredVariable>,
+    console_callback: Option<ConsoleCallback>,
 }
 
 impl VariableManager {
     pub fn new(cached_variables: HashMap<String, StoredVariable>) -> Self {
-        println!(">> Initializing variable manager with {} cached variables", cached_variables.len());
-        
+        let msg = format!(">> Initializing variable manager with {} cached variables", cached_variables.len());
+        println!("{}", msg);
+
         if !cached_variables.is_empty() {
             for (name, var) in &cached_variables {
-                println!("   - Restored variable '{}': {:?}", name, var.value);
+                let var_msg = format!("   - Restored variable '{}': {:?}", name, var.value);
+                println!("{}", var_msg);
             }
         }
-        
+
         Self {
             variables: cached_variables,
+            console_callback: None,
+        }
+    }
+
+    pub fn set_console_callback(&mut self, callback: ConsoleCallback) {
+        self.console_callback = Some(callback);
+    }
+
+    fn emit(&self, message: String, level: &str) {
+        println!("{}", message);
+        if let Some(callback) = &self.console_callback {
+            callback(message, level);
         }
     }
     
@@ -43,9 +58,9 @@ impl VariableManager {
             VariableValue::Boolean(b) => b.to_string(),
             VariableValue::FunctionResult(f) => format!("[Function: {}]", f),
         };
-        
-        println!("++ Variable stored: '{}' = {}", name, value_str);
-        
+
+        self.emit(format!("++ Variable stored: '{}' = {}", name, value_str), "info");
+
         Ok(())
     }
     
@@ -157,9 +172,9 @@ impl VariableManager {
         }
         
         if blanks_count > 0 {
-            println!("-- Found {} blank placeholders (?), searching for cached solutions...", blanks_count);
+            self.emit(format!("-- Found {} blank placeholders (?), searching for cached solutions...", blanks_count), "info");
             if let Some(t) = target {
-                println!("   >> Target-aware selection enabled for target: {}", t);
+                self.emit(format!("   >> Target-aware selection enabled for target: {}", t), "info");
             }
 
             let available_solutions = self.get_available_cached_solutions();
@@ -170,7 +185,7 @@ impl VariableManager {
             let filled_count = selected_solutions.len();
             for solution in selected_solutions {
                 resolved.push(solution);
-                println!("   + Filled ? with cached solution: {}", solution);
+                self.emit(format!("   + Filled ? with cached solution: {}", solution), "info");
             }
 
             // Warn if we couldn't fill all blanks
@@ -199,12 +214,12 @@ impl VariableManager {
 
                     if var.source_equation.is_some() {
                         solutions.push(*num);
-                        println!("   - Found computed solution: {} = {} (from: {})",
-                                name, num, var.source_equation.as_ref().unwrap());
+                        self.emit(format!("   - Found computed solution: {} = {} (from: {})",
+                                name, num, var.source_equation.as_ref().unwrap()), "info");
                     } else if solutions.len() < 3 {
 
                         solutions.push(*num);
-                        println!("   - Found stored value: {} = {}", name, num);
+                        self.emit(format!("   - Found stored value: {} = {}", name, num), "info");
                     }
                 }
             }
@@ -215,9 +230,9 @@ impl VariableManager {
         solutions.dedup_by(|a, b| (*a - *b).abs() < f64::EPSILON);
 
         if solutions.is_empty() {
-            println!("   - No suitable cached solutions found");
+            self.emit("   - No suitable cached solutions found".to_string(), "info");
         } else {
-            println!("   - Available cached solutions (deduplicated): {:?}", solutions);
+            self.emit(format!("   - Available cached solutions (deduplicated): {:?}", solutions), "info");
         }
 
         solutions
@@ -239,7 +254,7 @@ impl VariableManager {
         let mut selected = Vec::new();
         let len = available.len();
 
-        println!("   >> Selecting {} diverse values from {} available solutions", count, len);
+        self.emit(format!("   >> Selecting {} diverse values from {} available solutions", count, len), "info");
 
         // Target-aware selection: Filter and prioritize based on target size
         if let Some(t) = target {
@@ -247,11 +262,11 @@ impl VariableManager {
 
             if !filtered.is_empty() && filtered.len() >= count {
                 // Use filtered set for better target alignment
-                println!("      >> Using target-aware filtered set of {} values", filtered.len());
+                self.emit(format!("      >> Using target-aware filtered set of {} values", filtered.len()), "info");
                 return self.distribute_values(&filtered, count);
             } else if !filtered.is_empty() {
                 // Use what we have from filtered set, then add from full set
-                println!("      >> Target filtering gave {} values, need {}", filtered.len(), count);
+                self.emit(format!("      >> Target filtering gave {} values, need {}", filtered.len(), count), "info");
                 selected.extend_from_slice(&filtered);
                 let remaining = count - selected.len();
 
@@ -283,7 +298,7 @@ impl VariableManager {
     fn filter_by_target_range(&self, available: &[f64], target: f64) -> Vec<f64> {
         let mut filtered: Vec<f64> = if target < 100.0 {
             // Small target: prefer small values (< target * 2)
-            println!("      >> Small target ({}) - preferring small cached values", target);
+            self.emit(format!("      >> Small target ({}) - preferring small cached values", target), "info");
             available.iter()
                 .filter(|&&v| v < target * 2.0)
                 .copied()
@@ -291,14 +306,14 @@ impl VariableManager {
         } else if target < 1000.0 {
             // Medium target: mix of small and large
             // Include values from 1 to target * 2
-            println!("      >> Medium target ({}) - selecting balanced range", target);
+            self.emit(format!("      >> Medium target ({}) - selecting balanced range", target), "info");
             available.iter()
                 .filter(|&&v| v >= 2.0 && v <= target * 2.0)
                 .copied()
                 .collect()
         } else {
             // Large target: prefer large values and small multipliers
-            println!("      >> Large target ({}) - preferring large values and small multipliers", target);
+            self.emit(format!("      >> Large target ({}) - preferring large values and small multipliers", target), "info");
             let small_multipliers: Vec<f64> = available.iter()
                 .filter(|&&v| v >= 2.0 && v <= 20.0)
                 .copied()
@@ -341,7 +356,7 @@ impl VariableManager {
                 // This helps build bigger numbers through multiplication/exponentiation
                 let idx = len - 1; // Pick the largest available value
                 selected.push(available[idx]);
-                println!("      + Selected largest value to maximize potential: {}", available[idx]);
+                self.emit(format!("      + Selected largest value to maximize potential: {}", available[idx]), "info");
             }
             2 => {
                 // Take smallest and largest for maximum diversity

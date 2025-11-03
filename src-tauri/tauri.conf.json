@@ -33,11 +33,15 @@
     },
     "windows": [
       {
-        "title": "Quantum Consciousness IDE",
-        "width": 1600,
-        "height": 1000,
+        "title": "Quantum Consciousness IDE - Visual .slut Editor",
+        "width": 1920,
+        "height": 1080,
+        "minWidth": 1200,
+        "minHeight": 800,
         "center": true,
         "resizable": true,
+        "fullscreen": false,
+        "maximized": false,
         "fileDropEnabled": true
       }
     ]
