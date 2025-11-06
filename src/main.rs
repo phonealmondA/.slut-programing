@@ -19,6 +19,7 @@ mod interactive_engine;
 mod condition_evaluator;
 mod loop_executor;
 mod memory;
+mod pattern_generator;
 
 use function_builder::FunctionBuilder;
 use function_executor::FunctionExecutor;
@@ -27,6 +28,7 @@ use variable_manager::VariableManager;
 use interactive_engine::InteractiveEngine;
 use condition_evaluator::ConditionEvaluator;
 use loop_executor::LoopExecutor;
+use pattern_generator::{PatternGenerator, ProblemSpec};
 
 #[derive(Parser)]
 #[command(name = "quantum")]
@@ -51,6 +53,13 @@ struct QuantumCache {
     built_functions: HashMap<String, BuiltFunction>,
     math_solutions: HashMap<String, MathSolution>,
     function_results: HashMap<String, FunctionResult>,
+    // NEW: Pattern learning fields
+    #[serde(default)]
+    control_flow_patterns: HashMap<String, CachedPattern>,
+    #[serde(default)]
+    function_strategies: HashMap<String, FunctionStrategy>,
+    #[serde(default)]
+    algorithm_performances: HashMap<String, AlgorithmMetrics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -125,6 +134,46 @@ pub struct MathSolution {
     pub accuracy: f64,
     pub timestamp: u64,
     pub attempts: u32,
+}
+
+// NEW: Pattern learning structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedPattern {
+    pub pattern_type: PatternType,
+    pub structure: String,
+    pub success_rate: f64,
+    pub avg_iterations: f64,
+    pub execution_time_ms: f64,
+    pub problem_signature: String,
+    pub timestamp: u64,
+    pub times_used: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PatternType {
+    CountLoop,
+    RangeLoop,
+    WhileLoop,
+    ConditionalChain,
+    NestedStructure,
+    Hybrid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionStrategy {
+    pub strategy_name: String,
+    pub approach: Vec<String>,
+    pub success_cases: Vec<String>,
+    pub avg_performance: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlgorithmMetrics {
+    pub algorithm_name: String,
+    pub iterations_taken: u32,
+    pub memory_used: usize,
+    pub execution_time_ms: f64,
+    pub correctness_score: f64,
 }
 
 fn main() -> Result<()> {
